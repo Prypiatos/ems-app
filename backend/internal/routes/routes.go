@@ -43,8 +43,8 @@ func setupAPI(s *Server) {
 
 	router.HandleFunc("/", s.Home)
 	router.HandleFunc("GET /health/{id}", s.GetHealthByID)
-	router.HandleFunc("/nodes", s.GetNodes)
 	router.HandleFunc("GET /nodes/{id}", s.GetNodeDetailsByID)
+	router.HandleFunc("/nodes", s.GetNodes)
 	router.HandleFunc("/energy/aggregate", s.GetAggregate)
 	router.HandleFunc("/prediction", s.GetPrediction)
 	router.HandleFunc("/anomalies", s.GetAnomalies)
@@ -81,7 +81,19 @@ func (s *Server) GetNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(s.store.GetNodeList())
 }
 
-func (s *Server) GetNodeDetailsByID(w http.ResponseWriter, r *http.Request) {}
+func (s *Server) GetNodeDetailsByID(w http.ResponseWriter, r *http.Request) {
+	node_id := r.PathValue("id")
+
+	device, err := s.store.GetDeviceByID(node_id)
+
+	if err == ErrNodeNotFound {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("content-type", jsonContentType)
+	json.NewEncoder(w).Encode(device)
+}
 
 func (s *Server) GetAggregate(w http.ResponseWriter, r *http.Request) {}
 
