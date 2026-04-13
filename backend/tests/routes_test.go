@@ -117,6 +117,42 @@ func TestGetNodes(t *testing.T) {
 
 	})
 }
+func TestGetNodeDetailsByID(t *testing.T) {
+
+	deviceStore := &StubDeviceStore{db: map[string]models.Node{"node_1": {NodeID: "node_1", NodeType: "typeA", Status: routes.ONLINE}}}
+	server := routes.NewServer(deviceStore)
+
+	tests := []struct {
+		name   string
+		path   string
+		status int
+		body   models.Node
+	}{
+		{"valid node responds OK", "/nodes/node_1", http.StatusOK, deviceStore.db["node_1"]},
+		{"invalid node_id should return 404", "/nodes/node_foo", http.StatusNotFound, models.Node{}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, test.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			resp := httptest.NewRecorder()
+			server.ServeHTTP(resp, req)
+
+			assertStatusCode(t, resp.Code, test.status)
+
+			if resp.Code == http.StatusOK {
+				got := getDeviceFromResponse(t, resp.Body)
+				assertContentType(t, resp, jsonContentType)
+				assertDevice(t, got, test.body)
+			}
+
+		})
+	}
+}
 
 type StubDeviceStore struct {
 	healthRecords map[string]models.HealthStatus
@@ -185,7 +221,6 @@ func getNodesFromResponse(t testing.TB, body io.Reader) (nodes []models.Node) {
 	}
 
 	return
-
 }
 
 func getHealthFromResponse(t testing.TB, body io.Reader) (health models.HealthStatus) {
@@ -197,5 +232,22 @@ func getHealthFromResponse(t testing.TB, body io.Reader) (health models.HealthSt
 	}
 
 	return
+}
 
+func assertDevice(t *testing.T, got, want models.Node) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v want %v", got, want)
+	}
+}
+
+func getDeviceFromResponse(t testing.TB, body io.Reader) (node models.Node) {
+	t.Helper()
+
+	err := json.NewDecoder(body).Decode(&node)
+	if err != nil {
+		t.Fatalf("Unable to parse response from server %q into slice of Node, '%v'", body, err)
+	}
+
+	return
 }
