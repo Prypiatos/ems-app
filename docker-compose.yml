@@ -1,0 +1,7 @@
+services:
+  ems-backend:
+    build:
+      context: ./backend
+    ports:
+      - 8080:8080
+      
