@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Prypiatos/energy-e3-app/backend/internal/models"
+	"github.com/Prypiatos/ems-app/backend/internal/models"
 )
 
 const (
