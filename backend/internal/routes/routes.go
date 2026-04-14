@@ -54,14 +54,15 @@ func setupAPI(s *Server) {
 
 	router := http.NewServeMux()
 
-	router.HandleFunc("/", s.Home)
+	router.HandleFunc("GET /", s.Home)
 	router.HandleFunc("GET /health/{id}", s.GetHealthByID)
 	router.HandleFunc("GET /nodes/{id}", s.GetNodeDetailsByID)
-	router.HandleFunc("/nodes", s.GetNodes)
-	router.HandleFunc("/energy/aggregate", s.GetAggregate)
-	router.HandleFunc("/prediction", s.GetPrediction)
-	router.HandleFunc("/anomalies", s.GetAnomalies)
-	router.HandleFunc("/alerts", s.GetAlerts)
+	router.HandleFunc("GET /nodes", s.GetNodes)
+	router.HandleFunc("GET /energy/aggregate", s.GetAggregate)
+	router.HandleFunc("GET /prediction", s.GetPrediction)
+	router.HandleFunc("GET /anomalies", s.GetAnomalies)
+	router.HandleFunc("GET /alerts", s.GetAlerts)
+	router.HandleFunc("GET /readings", s.GetLiveReadings)
 
 	s.Handler = router
 }
