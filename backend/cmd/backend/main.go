@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Prypiatos/ems-app/backend/internal/models"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
+	"github.com/Prypiatos/shared-models/models"
 )
 
 func main() {
