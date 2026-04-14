@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Prypiatos/energy-e3-app/backend/internal/models"
-	"github.com/Prypiatos/energy-e3-app/backend/internal/routes"
+	"github.com/Prypiatos/ems-app/backend/internal/models"
+	"github.com/Prypiatos/ems-app/backend/internal/routes"
 )
 
 const jsonContentType = "application/json"
