@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/Prypiatos/ems-app/backend/internal/models"
+	"github.com/Prypiatos/shared-models/models"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 )
 
