@@ -86,12 +86,12 @@ func (s *Server) GetHealthByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("content-type", jsonContentType)
+	w.Header().Set("Content-Type", jsonContentType)
 	json.NewEncoder(w).Encode(healthStatus)
 }
 
 func (s *Server) GetNodes(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", jsonContentType)
+	w.Header().Set("Content-Type", jsonContentType)
 	json.NewEncoder(w).Encode(s.store.GetNodeList())
 }
 
@@ -105,7 +105,7 @@ func (s *Server) GetNodeDetailsByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("content-type", jsonContentType)
+	w.Header().Set("Content-Type", jsonContentType)
 	json.NewEncoder(w).Encode(device)
 }
 

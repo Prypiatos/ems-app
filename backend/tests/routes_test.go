@@ -273,8 +273,8 @@ func assertResponseBody(t testing.TB, got, want string) {
 
 func assertContentType(t testing.TB, response *httptest.ResponseRecorder, want string) {
 	t.Helper()
-	if response.Result().Header.Get("content-type") != want {
-		t.Errorf("response did not have content-type of %s, got %v", want, response.Result().Header)
+	if response.Result().Header.Get("Content-Type") != want {
+		t.Errorf("response did not have Content-Type of %s, got %v", want, response.Result().Header)
 	}
 }
 
