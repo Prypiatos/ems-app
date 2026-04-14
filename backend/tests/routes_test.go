@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,12 +12,9 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
+	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/shared-models/models"
 )
-
-const jsonContentType = "application/json"
-
-var ErrMockError = errors.New("mock error")
 
 func TestHome(t *testing.T) {
 
@@ -53,9 +49,9 @@ func TestHome(t *testing.T) {
 func TestGetHealthByID(t *testing.T) {
 
 	deviceStore := &StubDeviceStore{healthRecords: map[string]models.HealthStatus{
-		"node_1": {NodeID: "node_1", Status: routes.ONLINE, Timestamp: 1713000000, Uptime: 86400, MQTTConnected: true, WifiConnected: true, SensorOK: true, BufferedCount: 0},
-		"node_2": {NodeID: "node_2", Status: routes.DEGRADED, Timestamp: 1713000100, Uptime: 86410, MQTTConnected: true, WifiConnected: false, SensorOK: true, BufferedCount: 2},
-		"node_3": {NodeID: "node_3", Status: routes.OFFLINE_INTENDED, Timestamp: 1713000200, Uptime: 86420, MQTTConnected: false, WifiConnected: false, SensorOK: false, BufferedCount: 8},
+		"node_1": {NodeID: "node_1", Status: types.ONLINE, Timestamp: 1713000000, Uptime: 86400, MQTTConnected: true, WifiConnected: true, SensorOK: true, BufferedCount: 0},
+		"node_2": {NodeID: "node_2", Status: types.DEGRADED, Timestamp: 1713000100, Uptime: 86410, MQTTConnected: true, WifiConnected: false, SensorOK: true, BufferedCount: 2},
+		"node_3": {NodeID: "node_3", Status: types.OFFLINE_INTENDED, Timestamp: 1713000200, Uptime: 86420, MQTTConnected: false, WifiConnected: false, SensorOK: false, BufferedCount: 8},
 	}}
 	server := routes.NewServer(deviceStore, &StubStreamClient{})
 
@@ -85,7 +81,7 @@ func TestGetHealthByID(t *testing.T) {
 
 			if resp.Code == http.StatusOK {
 				got := getHealthFromResponse(t, resp.Body)
-				assertContentType(t, resp, jsonContentType)
+				assertContentType(t, resp, types.JSONContentType)
 				assertHealthStatus(t, got, test.body)
 			}
 
@@ -99,9 +95,9 @@ func TestGetNodes(t *testing.T) {
 	t.Run("returns 200 on GET request", func(t *testing.T) {
 
 		wantedNodes := []models.Node{
-			{NodeID: "node_1", NodeType: "typeA", Status: routes.ONLINE},
-			{NodeID: "node_2", NodeType: "typeB", Status: routes.DEGRADED},
-			{NodeID: "node_3", NodeType: "typeC", Status: routes.OFFLINE_INTENDED},
+			{NodeID: "node_1", NodeType: "typeA", Status: types.ONLINE},
+			{NodeID: "node_2", NodeType: "typeB", Status: types.DEGRADED},
+			{NodeID: "node_3", NodeType: "typeC", Status: types.OFFLINE_INTENDED},
 		}
 
 		deviceStore := &StubDeviceStore{healthRecords: nil, nodes: wantedNodes}
@@ -118,7 +114,7 @@ func TestGetNodes(t *testing.T) {
 		got := getNodesFromResponse(t, resp.Body)
 
 		assertStatusCode(t, resp.Code, http.StatusOK)
-		assertContentType(t, resp, jsonContentType)
+		assertContentType(t, resp, types.JSONContentType)
 		assertNodes(t, got, wantedNodes)
 
 	})
@@ -126,7 +122,7 @@ func TestGetNodes(t *testing.T) {
 
 func TestGetNodeDetailsByID(t *testing.T) {
 
-	deviceStore := &StubDeviceStore{db: map[string]models.Node{"node_1": {NodeID: "node_1", NodeType: "typeA", Status: routes.ONLINE}}}
+	deviceStore := &StubDeviceStore{db: map[string]models.Node{"node_1": {NodeID: "node_1", NodeType: "typeA", Status: types.ONLINE}}}
 	server := routes.NewServer(deviceStore, &StubStreamClient{})
 
 	tests := []struct {
@@ -153,7 +149,7 @@ func TestGetNodeDetailsByID(t *testing.T) {
 
 			if resp.Code == http.StatusOK {
 				got := getDeviceFromResponse(t, resp.Body)
-				assertContentType(t, resp, jsonContentType)
+				assertContentType(t, resp, types.JSONContentType)
 				assertDevice(t, got, test.body)
 			}
 
@@ -190,7 +186,7 @@ func TestGetLiveReadings(t *testing.T) {
 		{
 			name: "stream failure returns close message",
 			results: []routes.StreamResult{
-				{Error: ErrMockError},
+				{Error: types.ErrMockError},
 			},
 			wantMsgs:  []string{"Stream Unavailable"},
 			wantCode:  websocket.CloseInternalServerErr,
@@ -265,7 +261,7 @@ func (s *StubDeviceStore) GetDeviceByID(node_id string) (models.Node, error) {
 	if device, ok := s.db[node_id]; ok {
 		return device, nil
 	}
-	return models.Node{}, routes.ErrNodeNotFound
+	return models.Node{}, types.ErrNodeNotFound
 }
 
 func (s *StubDeviceStore) GetNodeList() []models.Node {
@@ -276,7 +272,7 @@ func (s *StubDeviceStore) GetDeviceHealth(node_id string) (models.HealthStatus, 
 	if health, ok := s.healthRecords[node_id]; ok {
 		return health, nil
 	}
-	return models.HealthStatus{}, routes.ErrNodeNotFound
+	return models.HealthStatus{}, types.ErrNodeNotFound
 }
 
 func assertStatusCode(t testing.TB, got, want int) {

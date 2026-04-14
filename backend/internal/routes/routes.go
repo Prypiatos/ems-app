@@ -3,23 +3,13 @@ package routes
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 
+	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/shared-models/models"
 	"github.com/gorilla/websocket"
 )
-
-const (
-	ONLINE           = "online"
-	DEGRADED         = "degraded"
-	OFFLINE_INTENDED = "offline_intended"
-)
-
-const jsonContentType = "application/json"
-
-var ErrNodeNotFound = errors.New("Node not found")
 
 type DeviceStore interface {
 	GetDeviceHealth(node_id string) (models.HealthStatus, error)
@@ -81,17 +71,17 @@ func (s *Server) GetHealthByID(w http.ResponseWriter, r *http.Request) {
 
 	healthStatus, err := s.store.GetDeviceHealth(node_id)
 
-	if err == ErrNodeNotFound {
+	if err == types.ErrNodeNotFound {
 		http.NotFound(w, r)
 		return
 	}
 
-	w.Header().Set("Content-Type", jsonContentType)
+	w.Header().Set("Content-Type", types.JSONContentType)
 	json.NewEncoder(w).Encode(healthStatus)
 }
 
 func (s *Server) GetNodes(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", jsonContentType)
+	w.Header().Set("Content-Type", types.JSONContentType)
 	json.NewEncoder(w).Encode(s.store.GetNodeList())
 }
 
@@ -100,12 +90,12 @@ func (s *Server) GetNodeDetailsByID(w http.ResponseWriter, r *http.Request) {
 
 	device, err := s.store.GetDeviceByID(node_id)
 
-	if err == ErrNodeNotFound {
+	if err == types.ErrNodeNotFound {
 		http.NotFound(w, r)
 		return
 	}
 
-	w.Header().Set("Content-Type", jsonContentType)
+	w.Header().Set("Content-Type", types.JSONContentType)
 	json.NewEncoder(w).Encode(device)
 }
 
