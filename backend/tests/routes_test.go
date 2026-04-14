@@ -1,12 +1,16 @@
 package tests
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"github.com/gorilla/websocket"
 
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 	"github.com/Prypiatos/shared-models/models"
@@ -14,9 +18,11 @@ import (
 
 const jsonContentType = "application/json"
 
+var ErrMockError = errors.New("mock error")
+
 func TestHome(t *testing.T) {
 
-	server := routes.NewServer(&StubDeviceStore{})
+	server := routes.NewServer(&StubDeviceStore{}, &StubStreamClient{})
 
 	tests := []struct {
 		name   string
@@ -51,7 +57,7 @@ func TestGetHealthByID(t *testing.T) {
 		"node_2": {NodeID: "node_2", Status: routes.DEGRADED, Timestamp: 1713000100, Uptime: 86410, MQTTConnected: true, WifiConnected: false, SensorOK: true, BufferedCount: 2},
 		"node_3": {NodeID: "node_3", Status: routes.OFFLINE_INTENDED, Timestamp: 1713000200, Uptime: 86420, MQTTConnected: false, WifiConnected: false, SensorOK: false, BufferedCount: 8},
 	}}
-	server := routes.NewServer(deviceStore)
+	server := routes.NewServer(deviceStore, &StubStreamClient{})
 
 	tests := []struct {
 		name   string
@@ -99,7 +105,7 @@ func TestGetNodes(t *testing.T) {
 		}
 
 		deviceStore := &StubDeviceStore{healthRecords: nil, nodes: wantedNodes}
-		server := routes.NewServer(deviceStore)
+		server := routes.NewServer(deviceStore, &StubStreamClient{})
 
 		req, err := http.NewRequest(http.MethodGet, "/nodes", nil)
 		if err != nil {
@@ -117,10 +123,11 @@ func TestGetNodes(t *testing.T) {
 
 	})
 }
+
 func TestGetNodeDetailsByID(t *testing.T) {
 
 	deviceStore := &StubDeviceStore{db: map[string]models.Node{"node_1": {NodeID: "node_1", NodeType: "typeA", Status: routes.ONLINE}}}
-	server := routes.NewServer(deviceStore)
+	server := routes.NewServer(deviceStore, &StubStreamClient{})
 
 	tests := []struct {
 		name   string
@@ -152,6 +159,78 @@ func TestGetNodeDetailsByID(t *testing.T) {
 
 		})
 	}
+}
+
+func TestGetLiveReadings(t *testing.T) {
+	tests := []struct {
+		name      string
+		sr        routes.StreamResult
+		wantMsg   string
+		wantCode  int
+		expectErr bool
+	}{
+		{
+			name:      "receive a message",
+			sr:        routes.StreamResult{Data: []byte("hello world")},
+			wantMsg:   "hello world",
+			expectErr: false,
+		},
+		{
+			name:      "stream failure returns close message",
+			sr:        routes.StreamResult{Error: ErrMockError},
+			wantMsg:   "Stream Unavailable",
+			wantCode:  websocket.CloseInternalServerErr,
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := routes.NewServer(&StubDeviceStore{}, &StubStreamClient{data: tt.sr})
+			ts := httptest.NewServer(server)
+			defer ts.Close()
+
+			wsURL := "ws" + ts.URL[len("http"):] + "/readings"
+			ws, _, _ := websocket.DefaultDialer.Dial(wsURL, nil)
+			defer ws.Close()
+
+			_, resp, err := ws.ReadMessage()
+
+			if tt.expectErr {
+				if err == nil {
+					t.Fatal("expected an error but got none")
+				}
+				if !websocket.IsCloseError(err, tt.wantCode) {
+					t.Errorf("got error %v, want code %d", err, tt.wantCode)
+				}
+				if closeErr, ok := err.(*websocket.CloseError); ok && closeErr.Text != tt.wantMsg {
+					t.Errorf("got text %q want %q", closeErr.Text, tt.wantMsg)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if string(resp) != tt.wantMsg {
+					t.Errorf("got %q want %q", string(resp), tt.wantMsg)
+				}
+			}
+		})
+	}
+}
+
+type StubStreamClient struct {
+	data routes.StreamResult
+}
+
+func (ss *StubStreamClient) Consume(ctx context.Context) <-chan routes.StreamResult {
+	outchan := make(chan routes.StreamResult)
+
+	go func() {
+		defer close(outchan)
+		outchan <- ss.data
+	}()
+
+	return outchan
 }
 
 type StubDeviceStore struct {

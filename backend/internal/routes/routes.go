@@ -1,11 +1,14 @@
 package routes
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/Prypiatos/shared-models/models"
+	"github.com/gorilla/websocket"
 )
 
 const (
@@ -24,14 +27,24 @@ type DeviceStore interface {
 	GetNodeList() []models.Node
 }
 
+type StreamResult struct {
+	Data  []byte
+	Error error
+}
+type StreamClient interface {
+	Consume(ctx context.Context) <-chan StreamResult
+}
+
 type Server struct {
-	store DeviceStore
+	stream StreamClient
+	store  DeviceStore
 	http.Handler
 }
 
-func NewServer(store DeviceStore) *Server {
+func NewServer(store DeviceStore, stream StreamClient) *Server {
 	s := new(Server)
 	s.store = store
+	s.stream = stream
 	setupAPI(s)
 
 	return s
@@ -102,3 +115,35 @@ func (s *Server) GetPrediction(w http.ResponseWriter, r *http.Request) {}
 func (s *Server) GetAnomalies(w http.ResponseWriter, r *http.Request) {}
 
 func (s *Server) GetAlerts(w http.ResponseWriter, r *http.Request) {}
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
+func (s *Server) GetLiveReadings(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	results := s.stream.Consume(r.Context())
+
+	for res := range results {
+		if res.Error != nil {
+			log.Printf("Closing WS: Stream failure: %v", res.Error)
+
+			msg := websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Stream Unavailable")
+			conn.WriteMessage(websocket.CloseMessage, msg)
+			return
+		}
+
+		if err := conn.WriteMessage(websocket.TextMessage, res.Data); err != nil {
+			return
+		}
+
+	}
+
+}

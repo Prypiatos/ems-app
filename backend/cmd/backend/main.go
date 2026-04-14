@@ -32,7 +32,7 @@ func main() {
 	}
 
 	deviceStore := &InMemoryDeviceStore{db: db, healthRecords: healthRecords, nodes: nodes}
-	server := routes.NewServer(deviceStore)
+	server := routes.NewServer(deviceStore, nil)
 
 	port := 8080
 	addr := fmt.Sprintf(":%d", port)
