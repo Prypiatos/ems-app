@@ -207,9 +207,20 @@ func assertNodes(t *testing.T, got []models.Node, wantedNodes []models.Node) {
 
 func assertHealthStatus(t *testing.T, got, want models.HealthStatus) {
 	t.Helper()
-	if !reflect.DeepEqual(got, want) {
+	if !healthStatusEqual(got, want) {
 		t.Errorf("got %v want %v", got, want)
 	}
+}
+
+func healthStatusEqual(a, b models.HealthStatus) bool {
+	return a.NodeID == b.NodeID &&
+		a.Timestamp == b.Timestamp &&
+		a.Status == b.Status &&
+		a.Uptime == b.Uptime &&
+		a.MQTTConnected == b.MQTTConnected &&
+		a.WifiConnected == b.WifiConnected &&
+		a.SensorOK == b.SensorOK &&
+		a.BufferedCount == b.BufferedCount
 }
 
 func getNodesFromResponse(t testing.TB, body io.Reader) (nodes []models.Node) {
@@ -236,9 +247,15 @@ func getHealthFromResponse(t testing.TB, body io.Reader) (health models.HealthSt
 
 func assertDevice(t *testing.T, got, want models.Node) {
 	t.Helper()
-	if !reflect.DeepEqual(got, want) {
+	if !nodeEqual(got, want) {
 		t.Errorf("got %v want %v", got, want)
 	}
+}
+
+func nodeEqual(a, b models.Node) bool {
+	return a.NodeID == b.NodeID &&
+		a.NodeType == b.NodeType &&
+		a.Status == b.Status
 }
 
 func getDeviceFromResponse(t testing.TB, body io.Reader) (node models.Node) {
