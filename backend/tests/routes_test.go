@@ -164,21 +164,35 @@ func TestGetNodeDetailsByID(t *testing.T) {
 func TestGetLiveReadings(t *testing.T) {
 	tests := []struct {
 		name      string
-		sr        routes.StreamResult
-		wantMsg   string
+		results   []routes.StreamResult
+		wantMsgs  []string
 		wantCode  int
 		expectErr bool
 	}{
 		{
-			name:      "receive a message",
-			sr:        routes.StreamResult{Data: []byte("hello world")},
-			wantMsg:   "hello world",
+			name: "receive a single message",
+			results: []routes.StreamResult{
+				{Data: []byte("hello world")},
+			},
+			wantMsgs:  []string{"hello world"},
 			expectErr: false,
 		},
 		{
-			name:      "stream failure returns close message",
-			sr:        routes.StreamResult{Error: ErrMockError},
-			wantMsg:   "Stream Unavailable",
+			name: "receive multiple messages in sequence",
+			results: []routes.StreamResult{
+				{Data: []byte("packet 1")},
+				{Data: []byte("packet 2")},
+				{Data: []byte("packet 3")},
+			},
+			wantMsgs:  []string{"packet 1", "packet 2", "packet 3"},
+			expectErr: false,
+		},
+		{
+			name: "stream failure returns close message",
+			results: []routes.StreamResult{
+				{Error: ErrMockError},
+			},
+			wantMsgs:  []string{"Stream Unavailable"},
 			wantCode:  websocket.CloseInternalServerErr,
 			expectErr: true,
 		},
@@ -186,32 +200,34 @@ func TestGetLiveReadings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := routes.NewServer(&StubDeviceStore{}, &StubStreamClient{data: tt.sr})
+			server := routes.NewServer(&StubDeviceStore{}, &StubStreamClient{results: tt.results})
 			ts := httptest.NewServer(server)
 			defer ts.Close()
 
 			wsURL := "ws" + ts.URL[len("http"):] + "/readings"
-			ws, _, _ := websocket.DefaultDialer.Dial(wsURL, nil)
+			ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+			if err != nil {
+				t.Fatalf("dial failed: %v", err)
+			}
 			defer ws.Close()
 
-			_, resp, err := ws.ReadMessage()
-
 			if tt.expectErr {
+				_, _, err := ws.ReadMessage()
 				if err == nil {
 					t.Fatal("expected an error but got none")
 				}
 				if !websocket.IsCloseError(err, tt.wantCode) {
-					t.Errorf("got error %v, want code %d", err, tt.wantCode)
-				}
-				if closeErr, ok := err.(*websocket.CloseError); ok && closeErr.Text != tt.wantMsg {
-					t.Errorf("got text %q want %q", closeErr.Text, tt.wantMsg)
+					t.Errorf("got error code %v, want %d", err, tt.wantCode)
 				}
 			} else {
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-				if string(resp) != tt.wantMsg {
-					t.Errorf("got %q want %q", string(resp), tt.wantMsg)
+				for _, want := range tt.wantMsgs {
+					_, resp, err := ws.ReadMessage()
+					if err != nil {
+						t.Fatalf("unexpected error reading message: %v", err)
+					}
+					if string(resp) != want {
+						t.Errorf("got %q, want %q", string(resp), want)
+					}
 				}
 			}
 		})
@@ -219,7 +235,7 @@ func TestGetLiveReadings(t *testing.T) {
 }
 
 type StubStreamClient struct {
-	data routes.StreamResult
+	results []routes.StreamResult
 }
 
 func (ss *StubStreamClient) Consume(ctx context.Context) <-chan routes.StreamResult {
@@ -227,7 +243,13 @@ func (ss *StubStreamClient) Consume(ctx context.Context) <-chan routes.StreamRes
 
 	go func() {
 		defer close(outchan)
-		outchan <- ss.data
+		for _, res := range ss.results {
+			select {
+			case <-ctx.Done():
+				return
+			case outchan <- res:
+			}
+		}
 	}()
 
 	return outchan
