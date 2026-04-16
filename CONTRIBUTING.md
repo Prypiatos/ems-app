@@ -13,7 +13,7 @@ Commits must be small, independent, and easy to review.
 ```bash
 git checkout -b feature-name
 # make changes
-git add .
+git add changed-file1 changed-file2
 git commit
 git push origin feature-name
 ````
