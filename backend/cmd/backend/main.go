@@ -1,16 +1,55 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/Prypiatos/ems-app/backend/internal/kafka"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/shared-models/models"
 )
 
 func main() {
+
+	// --- slog setup ---
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
+	// --- context with SIGTERM handling ---
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+		<-ch
+		slog.Info("signal received, shutting down")
+		cancel()
+	}()
+
+	// --- Kafka consumers ---
+	consumers := []struct {
+		topic   string
+		groupID string
+	}{
+		{"energy.readings", "energy-readings"},
+		{"energy.anomalies", "energy-anomalies"},
+		{"energy.forecasts", "energy-forecasts"},
+	}
+
+	for _, cfg := range consumers {
+		c, err := kafka.NewConsumer(cfg.topic, cfg.groupID)
+		if err != nil {
+			log.Fatalf("failed to create consumer: %v", err)
+		}
+		go kafka.Consume(ctx, c)
+	}
 
 	// Seed in-memory node metadata for local development.
 	db := map[string]models.Node{
@@ -38,6 +77,24 @@ func main() {
 	port := 8080
 	addr := fmt.Sprintf(":%d", port)
 
-	log.Printf("Starting server on %s\n", addr)
-	log.Fatal(http.ListenAndServe(addr, server))
+	// --- HTTP server with graceful shutdown ---
+	httpServer := &http.Server{
+		Addr:    addr,
+		Handler: server,
+	}
+
+	go func() {
+		slog.Info("starting server", "addr", addr)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	slog.Info("shutting down http server")
+	_ = httpServer.Shutdown(shutdownCtx)
 }
