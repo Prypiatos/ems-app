@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	ckafka "github.com/confluentinc/confluent-kafka-go/kafka"
+	ckafka "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
 func NewConsumer(topic, groupID string) (*ckafka.Consumer, error) {
