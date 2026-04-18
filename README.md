@@ -7,6 +7,17 @@ Currently in very early development. This repository will host the backend Go se
 - `docker-compose.yml` Local container orchestration
 - `frontend/` Reserved for dashboard UI (currently empty)
 
+## Quick Start - Backend
+
+Install air for hot reload
+```bash
+go install github.com/air-verse/air@latest
+```
+Run the backend with air
+```bash
+air
+```
+
 ## Build and Run
 From repo root:
 
