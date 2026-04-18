@@ -102,7 +102,11 @@ func main() {
 	defer shutdownCancel()
 
 	slog.Info("shutting down http server")
-	_ = httpServer.Shutdown(shutdownCtx)
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		slog.Error("server shutdown failed", "error", err)
+	} else {
+		slog.Info("server shutdown ok")
+	}
 	wg.Wait()
 
 	slog.Info("shutdown complete")
