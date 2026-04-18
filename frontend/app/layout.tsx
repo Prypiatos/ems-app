@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -27,7 +28,28 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-50">
+        <header className="w-full border-b bg-white dark:bg-[#0b0b0b] border-black/[.06] dark:border-white/[.06]">
+          <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+            <Link href="/" className="text-lg font-semibold">
+              EMS
+            </Link>
+            <nav className="flex gap-4">
+              <Link href="/dashboard" className="px-3 py-2 rounded hover:bg-black/5">Dashboard</Link>
+              <Link href="/history" className="px-3 py-2 rounded hover:bg-black/5">History</Link>
+              <Link href="/divisions" className="px-3 py-2 rounded hover:bg-black/5">Divisions</Link>
+              <Link href="/alerts" className="px-3 py-2 rounded hover:bg-black/5">Alerts</Link>
+              <Link href="/analytics" className="px-3 py-2 rounded hover:bg-black/5">Analytics</Link>
+            </nav>
+          </div>
+        </header>
+
+        <main className="flex-1 max-w-6xl w-full mx-auto px-6 py-8">{children}</main>
+
+        <footer className="w-full border-t mt-8 py-4">
+          <div className="max-w-6xl mx-auto px-6 text-sm text-zinc-600">© {new Date().getFullYear()} EMS</div>
+        </footer>
+      </body>
     </html>
   );
 }
