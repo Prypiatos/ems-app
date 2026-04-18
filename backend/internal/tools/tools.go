@@ -14,9 +14,13 @@ func WithSignalCancel() (context.Context, context.CancelFunc) {
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-		<-ch
-		slog.Info("signal received, cancelling context")
-		cancel()
+		select {
+		case <-ch:
+			slog.Info("signal received, cancelling context")
+			cancel()
+		case <-ctx.Done():
+		}
+
 	}()
 
 	return ctx, cancel
