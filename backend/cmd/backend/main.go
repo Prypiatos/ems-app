@@ -7,12 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/Prypiatos/ems-app/backend/internal/kafka"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
+	"github.com/Prypiatos/ems-app/backend/internal/tools"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/shared-models/models"
 )
@@ -24,14 +23,7 @@ func main() {
 	slog.SetDefault(logger)
 
 	// --- context with SIGTERM handling ---
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-		<-ch
-		slog.Info("signal received, shutting down")
-		cancel()
-	}()
+	ctx := tools.WithSignalCancel()
 
 	// --- Kafka consumers ---
 	consumers := []struct {
