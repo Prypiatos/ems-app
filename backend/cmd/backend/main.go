@@ -1,16 +1,55 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"sync"
+	"time"
 
+	"github.com/Prypiatos/ems-app/backend/internal/kafka"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
+	"github.com/Prypiatos/ems-app/backend/internal/tools"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/shared-models/models"
 )
 
 func main() {
+
+	// --- slog setup ---
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
+	// --- context with SIGTERM handling ---
+	ctx, cancel := tools.WithSignalCancel()
+
+	// --- Kafka consumers ---
+	consumers := []struct {
+		topic   string
+		groupID string
+	}{
+		{"energy.readings", "energy-readings"},
+		{"energy.anomalies", "energy-anomalies"},
+		{"energy.forecasts", "energy-forecasts"},
+	}
+
+	var wg sync.WaitGroup
+
+	for _, cfg := range consumers {
+		c, err := kafka.NewConsumer(cfg.topic, cfg.groupID)
+		if err != nil {
+			log.Fatalf("failed to create consumer: %v", err)
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			kafka.Consume(ctx, c)
+		}()
+	}
 
 	// Seed in-memory node metadata for local development.
 	db := map[string]models.Node{
@@ -38,6 +77,41 @@ func main() {
 	port := 8080
 	addr := fmt.Sprintf(":%d", port)
 
-	log.Printf("Starting server on %s\n", addr)
-	log.Fatal(http.ListenAndServe(addr, server))
+	// --- HTTP server with graceful shutdown ---
+	httpServer := &http.Server{
+		Addr:    addr,
+		Handler: server,
+	}
+
+	serverErrChan := make(chan error, 1)
+
+	go func() {
+		slog.Info("starting server", "addr", addr)
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			select {
+			case serverErrChan <- err:
+			default:
+			}
+			cancel()
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+	case err := <-serverErrChan:
+		slog.Error("server error", "error", err)
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	slog.Info("shutting down http server")
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		slog.Error("server shutdown failed", "error", err)
+	} else {
+		slog.Info("server shutdown ok")
+	}
+	wg.Wait()
+
+	slog.Info("shutdown complete")
 }
