@@ -8,7 +8,7 @@ import (
 	"syscall"
 )
 
-func WithSignalCancel() context.Context {
+func WithSignalCancel() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
@@ -19,7 +19,7 @@ func WithSignalCancel() context.Context {
 		cancel()
 	}()
 
-	return ctx
+	return ctx, cancel
 }
 
 func Getenv(k, def string) string {

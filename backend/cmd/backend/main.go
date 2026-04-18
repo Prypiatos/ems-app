@@ -24,7 +24,7 @@ func main() {
 	slog.SetDefault(logger)
 
 	// --- context with SIGTERM handling ---
-	ctx := tools.WithSignalCancel()
+	ctx, cancel := tools.WithSignalCancel()
 
 	// --- Kafka consumers ---
 	consumers := []struct {
