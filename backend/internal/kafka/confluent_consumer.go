@@ -14,6 +14,10 @@ type confluentConsumer struct {
 func NewConsumer(topic, groupID string) (Consumer, error) {
 	broker := tools.Getenv("KAFKA_BROKER", "localhost:9092")
 
+	if err := CheckHealth(broker); err != nil {
+		return nil, err
+	}
+
 	c, err := ckafka.NewConsumer(&ckafka.ConfigMap{
 		"bootstrap.servers": broker,
 		"group.id":          groupID,
@@ -66,8 +70,7 @@ func (cc *confluentConsumer) Poll(timeoutMs int) any {
 	}
 }
 
-func (cc *confluentConsumer) CheckHealth() error {
-	broker := tools.Getenv("KAFKA_BROKER", "localhost:9092")
+func CheckHealth(broker string) error {
 	config := &ckafka.ConfigMap{
 		"bootstrap.servers": broker,
 		"socket.timeout.ms": 2000,
@@ -88,7 +91,7 @@ func (cc *confluentConsumer) CheckHealth() error {
 	}
 
 	if len(md.Brokers) == 0 {
-		slog.Error("No brokers available", "error", ErrNoBrokersAvailable)
+		return ErrNoBrokersAvailable
 	}
 
 	slog.Info("Kafka is reachable")

@@ -55,15 +55,6 @@ func main() {
 			return
 		}
 
-		if err := c.CheckHealth(); err != nil {
-			slog.Error("failed to reach broker", "error", err)
-
-			cancel()
-
-			wg.Wait()
-			return
-		}
-
 		consumers = append(consumers, c)
 
 		wg.Add(1)

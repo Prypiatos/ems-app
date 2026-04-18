@@ -9,7 +9,6 @@ import (
 type Consumer interface {
 	Close() error
 	Poll(timeoutMs int) any
-	CheckHealth() error
 }
 
 var ErrNoBrokersAvailable = errors.New("no Kafka Brokers available")
