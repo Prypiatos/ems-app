@@ -4,4 +4,13 @@ services:
       context: ./backend
     ports:
       - 8080:8080
-      
+
+  ems-frontend:
+    build:
+      context: ./frontend
+    env_file:
+      - ./frontend/.env.docker
+    depends_on:
+      - ems-backend
+    ports:
+      - "3000:3000"
