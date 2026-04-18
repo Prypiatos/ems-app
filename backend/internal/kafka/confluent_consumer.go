@@ -56,7 +56,7 @@ func (cc *confluentConsumer) Poll(timeoutMs int) any {
 			Partition: e.TopicPartition.Partition,
 			Offset:    int64(e.TopicPartition.Offset),
 		}
-	case *ckafka.Error:
+	case ckafka.Error:
 		return Error{
 			Code: int(e.Code()),
 			Msg:  e.Error(),
