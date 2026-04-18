@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"log/slog"
@@ -78,14 +79,24 @@ func main() {
 		Handler: server,
 	}
 
+	serverErrChan := make(chan error, 1)
+
 	go func() {
 		slog.Info("starting server", "addr", addr)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			select {
+			case serverErrChan <- err:
+			default:
+			}
+			cancel()
 		}
 	}()
 
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case err := <-serverErrChan:
+		slog.Error("server error", "error", err)
+	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
@@ -93,6 +104,6 @@ func main() {
 	slog.Info("shutting down http server")
 	_ = httpServer.Shutdown(shutdownCtx)
 	wg.Wait()
-	
+
 	slog.Info("shutdown complete")
 }
