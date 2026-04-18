@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/Prypiatos/ems-app/backend/internal/kafka"
@@ -35,12 +36,14 @@ func main() {
 		{"energy.forecasts", "energy-forecasts"},
 	}
 
+	var wg sync.WaitGroup
+
 	for _, cfg := range consumers {
 		c, err := kafka.NewConsumer(cfg.topic, cfg.groupID)
 		if err != nil {
 			log.Fatalf("failed to create consumer: %v", err)
 		}
-		go kafka.Consume(ctx, c)
+		wg.Go(func() { kafka.Consume(ctx, c) })
 	}
 
 	// Seed in-memory node metadata for local development.
@@ -89,4 +92,7 @@ func main() {
 
 	slog.Info("shutting down http server")
 	_ = httpServer.Shutdown(shutdownCtx)
+	wg.Wait()
+	
+	slog.Info("shutdown complete")
 }
