@@ -65,3 +65,33 @@ func (cc *confluentConsumer) Poll(timeoutMs int) any {
 		return nil
 	}
 }
+
+func (cc *confluentConsumer) CheckHealth() error {
+	broker := tools.Getenv("KAFKA_BROKER", "localhost:9092")
+	config := &ckafka.ConfigMap{
+		"bootstrap.servers": broker,
+		"socket.timeout.ms": 2000,
+	}
+	admin, err := ckafka.NewAdminClient(config)
+
+	if err != nil {
+		slog.Error("Failed to create admin client", "error", err)
+		return err
+	}
+	defer admin.Close()
+
+	// Try to fetch cluster metadata
+	md, err := admin.GetMetadata(nil, false, 2000)
+	if err != nil {
+		slog.Error("Broker not reachable", "error", err)
+		return err
+	}
+
+	if len(md.Brokers) == 0 {
+		slog.Error("No brokers available", "error", ErrNoBrokersAvailable)
+	}
+
+	slog.Info("Kafka is reachable")
+
+	return nil
+}
