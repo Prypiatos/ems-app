@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -28,7 +27,7 @@ func main() {
 	ctx, cancel := tools.WithSignalCancel()
 
 	// --- Kafka consumers ---
-	consumers := []struct {
+	consumerConfigs := []struct {
 		topic   string
 		groupID string
 	}{
@@ -37,18 +36,44 @@ func main() {
 		{"energy.forecasts", "energy-forecasts"},
 	}
 
-	var wg sync.WaitGroup
+	var (
+		wg        sync.WaitGroup
+		consumers []kafka.Consumer
+	)
 
-	for _, cfg := range consumers {
+	for _, cfg := range consumerConfigs {
 		c, err := kafka.NewConsumer(cfg.topic, cfg.groupID)
 		if err != nil {
-			log.Fatalf("failed to create consumer: %v", err)
+			slog.Error("failed to create consumer",
+				"topic", cfg.topic,
+				"error", err,
+			)
+
+			cancel()
+
+			for _, cc := range consumers {
+				if closeErr := cc.Close(); closeErr != nil {
+					slog.Error("failed to close consumer", "error", closeErr)
+				}
+			}
+
+			wg.Wait()
+			return
 		}
+
+		consumers = append(consumers, c)
+
 		wg.Add(1)
-		go func() {
+		go func(c kafka.Consumer) {
 			defer wg.Done()
+			defer func() {
+				if closeErr := c.Close(); closeErr != nil {
+					slog.Error("failed to close consumer", "error", closeErr)
+				}
+			}()
+
 			kafka.Consume(ctx, c)
-		}()
+		}(c)
 	}
 
 	// Seed in-memory node metadata for local development.
@@ -111,6 +136,7 @@ func main() {
 	} else {
 		slog.Info("server shutdown ok")
 	}
+
 	wg.Wait()
 
 	slog.Info("shutdown complete")
