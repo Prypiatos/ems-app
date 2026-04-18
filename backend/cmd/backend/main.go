@@ -51,12 +51,6 @@ func main() {
 
 			cancel()
 
-			for _, cc := range consumers {
-				if closeErr := cc.Close(); closeErr != nil {
-					slog.Error("failed to close consumer", "error", closeErr)
-				}
-			}
-
 			wg.Wait()
 			return
 		}
