@@ -44,7 +44,11 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to create consumer: %v", err)
 		}
-		wg.Go(func() { kafka.Consume(ctx, c) })
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			kafka.Consume(ctx, c)
+		}()
 	}
 
 	// Seed in-memory node metadata for local development.

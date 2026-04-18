@@ -21,6 +21,9 @@ func NewConsumer(topic, groupID string) (*ckafka.Consumer, error) {
 	}
 
 	if err := c.SubscribeTopics([]string{topic}, nil); err != nil {
+		if closeErr := c.Close(); closeErr != nil {
+			slog.Error("consumer Close error", "error", closeErr)
+		}
 		return nil, err
 	}
 
