@@ -286,10 +286,13 @@ func (c *Client) encodeControl(ctrl ControlMessage) ([]byte, error) {
 	return json.Marshal(ctrl)
 }
 
-func (c *Client) sendRaw(data []byte) {
+func (c *Client) sendRaw(data []byte) bool {
 	select {
 	case c.Send <- data:
+		return true
 	default:
+		slog.Warn("dropping outbound websocket message: send buffer full")
+		return false
 	}
 }
 
@@ -345,5 +348,12 @@ func (c *Client) sendControl(ctrl ControlMessage) {
 	if err != nil {
 		return
 	}
-	c.sendRaw(data)
+	if !c.sendRaw(data) {
+		slog.Warn("failed to deliver websocket control message: send buffer full",
+			"type", ctrl.Type,
+			"action", ctrl.Action,
+			"topic", ctrl.Topic,
+			"room", ctrl.Room,
+		)
+	}
 }
