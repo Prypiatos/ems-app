@@ -5,7 +5,18 @@ Currently in very early development. This repository will host the backend Go se
 ## Project Structure
 - `backend/` Go backend service
 - `docker-compose.yml` Local container orchestration
-- `frontend/` Reserved for dashboard UI (currently empty)
+- `frontend/` Next.js frontend dashboard UI
+
+## Quick Start - Backend
+
+Install air for hot reload
+```bash
+go install github.com/air-verse/air@latest
+```
+Run the backend with air from the repo root
+```bash
+air -c backend/.air.toml
+```
 
 ## Build and Run
 From repo root:
