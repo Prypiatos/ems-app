@@ -9,15 +9,17 @@
 
 ## Connection
 
-| Property       | Value                                   |
-|----------------|-----------------------------------------|
-| Upgrade path   | `GET /ws`                               |
-| Socket.io path | `GET /socket.io/?EIO=4&transport=websocket` |
-| Subprotocol    | none (plain JSON text frames)           |
-| Ping interval  | ~54 s (server → client)                 |
-| Pong deadline  | 60 s                                    |
-| Max message    | 64 KB (inbound)                         |
-| Send buffer    | 256 messages per client                 |
+| Property                    | Value                                           |
+|-----------------------------|-------------------------------------------------|
+| Raw WS upgrade path         | `GET /ws`                                       |
+| Socket.IO path              | `GET /socket.io/?EIO=4&transport=websocket`     |
+| Raw WS subprotocol          | none (plain JSON text frames)                   |
+| Raw WS ping interval        | ~54 s (server → client)                         |
+| Raw WS pong deadline        | 60 s                                            |
+| Socket.IO ping interval     | 25 s (`pingInterval:25000` in Engine.IO open packet) |
+| Socket.IO ping timeout      | 20 s (`pingTimeout:20000` in Engine.IO open packet)  |
+| Max message                 | 64 KB (inbound)                                 |
+| Send buffer                 | 256 messages per client                         |
 
 ---
 
@@ -31,9 +33,13 @@ The server exposes a minimal Engine.IO/Socket.IO websocket endpoint at:
 
 `/socket.io/?EIO=4&transport=websocket`
 
+Heartbeat behavior differs by endpoint:
+- Raw `GET /ws` connections use the websocket server heartbeat documented above (`~54 s` ping interval, `60 s` pong deadline).
+- `GET /socket.io/?EIO=4&transport=websocket` connections use Engine.IO heartbeat values advertised in the open packet: `pingInterval:25000` and `pingTimeout:20000`.
+
 Handshake flow:
 
-1. Server sends Engine.IO open packet (prefix `0`) with session metadata.
+1. Server sends Engine.IO open packet (prefix `0`) with session metadata, including `pingInterval` and `pingTimeout`.
 2. Client sends Socket.IO connect packet `40`.
 3. Server sends Socket.IO connect ack packet `40{"sid":"..."}`.
 
