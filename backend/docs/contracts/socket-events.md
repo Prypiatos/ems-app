@@ -25,7 +25,7 @@
 
 ## Wire Protocol
 
-All messages are JSON text frames. A single WebSocket connection multiplexes all topics.
+Messages on `GET /ws` are plain JSON text frames, and a single raw WebSocket connection multiplexes all topics. The Socket.IO-compatible endpoint at `/socket.io/?EIO=4&transport=websocket` uses Engine.IO/Socket.IO framed text messages instead (for example `0{...}`, `40`, and `42["event",{...}]`).
 
 ### Socket.io Compatibility
 
