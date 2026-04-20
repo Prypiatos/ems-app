@@ -125,6 +125,13 @@ func (c *Client) WritePump() {
 
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if c.protocol == "socketio" {
+				if err := c.conn.WriteMessage(websocket.TextMessage, []byte("2")); err != nil {
+					return
+				}
+				continue
+			}
+
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
