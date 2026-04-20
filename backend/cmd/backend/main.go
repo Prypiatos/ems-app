@@ -14,6 +14,7 @@ import (
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 	"github.com/Prypiatos/ems-app/backend/internal/tools"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
+	"github.com/Prypiatos/ems-app/backend/internal/ws"
 	"github.com/Prypiatos/shared-models/models"
 )
 
@@ -93,13 +94,23 @@ func main() {
 	deviceStore := &InMemoryDeviceStore{db: db, healthRecords: healthRecords, nodes: nodes}
 	server := routes.NewServer(deviceStore, nil)
 
+	// --- WebSocket hub ---
+	wsHub := ws.NewHub(slog.Default())
+
+	// Top-level mux: compose REST routes + WebSocket endpoint.
+	// This keeps the ws package fully decoupled from routes.Server.
+	topMux := http.NewServeMux()
+	topMux.Handle("/", server)
+	topMux.HandleFunc("GET /ws", ws.Handler(wsHub, slog.Default()))
+	topMux.HandleFunc("GET /socket.io/", ws.SocketIOHandler(wsHub, slog.Default()))
+
 	port := 8080
 	addr := fmt.Sprintf(":%d", port)
 
 	// --- HTTP server with graceful shutdown ---
 	httpServer := &http.Server{
 		Addr:    addr,
-		Handler: server,
+		Handler: topMux,
 	}
 
 	serverErrChan := make(chan error, 1)
