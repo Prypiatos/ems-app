@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"sync"
@@ -107,11 +108,37 @@ func main() {
 	port := 8080
 	addr := fmt.Sprintf(":%d", port)
 
+	var hijackedConns sync.Map
+
 	// --- HTTP server with graceful shutdown ---
 	httpServer := &http.Server{
 		Addr:    addr,
 		Handler: topMux,
+		ConnState: func(conn net.Conn, state http.ConnState) {
+			switch state {
+			case http.StateHijacked:
+				hijackedConns.Store(conn, struct{}{})
+			case http.StateClosed:
+				hijackedConns.Delete(conn)
+			}
+		},
 	}
+
+	httpServer.RegisterOnShutdown(func() {
+		hijackedConns.Range(func(key, _ any) bool {
+			conn, ok := key.(net.Conn)
+			if !ok {
+				return true
+			}
+
+			if err := conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+				slog.Warn("closing hijacked connection during shutdown failed", "error", err)
+			}
+			hijackedConns.Delete(conn)
+
+			return true
+		})
+	})
 
 	serverErrChan := make(chan error, 1)
 
