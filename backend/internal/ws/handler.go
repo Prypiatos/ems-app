@@ -13,6 +13,13 @@ import (
 // clientCounter generates unique client IDs without an external dependency.
 var clientCounter atomic.Uint64
 
+const (
+	// These Engine.IO values must stay aligned with the actual heartbeat cadence
+	// used by Client.WritePump for websocket ping frames.
+	socketIOPingIntervalMillis = 54000
+	socketIOPingTimeoutMillis  = 60000
+)
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -68,7 +75,12 @@ func SocketIOHandler(hub *Hub, logger *slog.Logger) http.HandlerFunc {
 		}
 
 		sid := fmt.Sprintf("sio_%d", time.Now().UnixNano())
-		open := fmt.Sprintf(`0{"sid":"%s","upgrades":[],"pingInterval":25000,"pingTimeout":20000,"maxPayload":1000000}`, sid)
+		open := fmt.Sprintf(
+			`0{"sid":"%s","upgrades":[],"pingInterval":%d,"pingTimeout":%d,"maxPayload":1000000}`,
+			sid,
+			socketIOPingIntervalMillis,
+			socketIOPingTimeoutMillis,
+		)
 		if err := conn.WriteMessage(websocket.TextMessage, []byte(open)); err != nil {
 			logger.Error("failed to write socket.io open packet", "error", err)
 			conn.Close()
