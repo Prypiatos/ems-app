@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { ThemeToggle } from "./theme-toggle";
 
 type ShellLayoutProps = {
-  children: React.ReactNode;
+  children: ReactNode;
 };
 
 const NAV_ITEMS = [
