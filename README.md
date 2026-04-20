@@ -13,9 +13,9 @@ Install air for hot reload
 ```bash
 go install github.com/air-verse/air@latest
 ```
-Run the backend with air
+Run the backend with air from the repo root
 ```bash
-air
+air -c backend/.air.toml
 ```
 
 ## Build and Run
