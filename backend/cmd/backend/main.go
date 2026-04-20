@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 	"github.com/Prypiatos/ems-app/backend/internal/tools"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
+	"github.com/Prypiatos/ems-app/backend/internal/ws"
 	"github.com/Prypiatos/shared-models/models"
 )
 
@@ -93,14 +95,50 @@ func main() {
 	deviceStore := &InMemoryDeviceStore{db: db, healthRecords: healthRecords, nodes: nodes}
 	server := routes.NewServer(deviceStore, nil)
 
+	// --- WebSocket hub ---
+	wsHub := ws.NewHub(slog.Default())
+
+	// Top-level mux: compose REST routes + WebSocket endpoint.
+	// This keeps the ws package fully decoupled from routes.Server.
+	topMux := http.NewServeMux()
+	topMux.Handle("/", server)
+	topMux.HandleFunc("GET /ws", ws.Handler(wsHub, slog.Default()))
+	topMux.HandleFunc("GET /socket.io/", ws.SocketIOHandler(wsHub, slog.Default()))
+
 	port := 8080
 	addr := fmt.Sprintf(":%d", port)
+
+	var hijackedConns sync.Map
 
 	// --- HTTP server with graceful shutdown ---
 	httpServer := &http.Server{
 		Addr:    addr,
-		Handler: server,
+		Handler: topMux,
+		ConnState: func(conn net.Conn, state http.ConnState) {
+			switch state {
+			case http.StateHijacked:
+				hijackedConns.Store(conn, struct{}{})
+			case http.StateClosed:
+				hijackedConns.Delete(conn)
+			}
+		},
 	}
+
+	httpServer.RegisterOnShutdown(func() {
+		hijackedConns.Range(func(key, _ any) bool {
+			conn, ok := key.(net.Conn)
+			if !ok {
+				return true
+			}
+
+			if err := conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+				slog.Warn("closing hijacked connection during shutdown failed", "error", err)
+			}
+			hijackedConns.Delete(conn)
+
+			return true
+		})
+	})
 
 	serverErrChan := make(chan error, 1)
 
