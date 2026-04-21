@@ -40,6 +40,13 @@ From `backend/`:
 go test ./...
 ```
 
+## Run mock kafka producer
+From `backend/`
+
+```bash
+go run cmd/misc/kafka_producer.go
+```
+
 ## API Quick Check
 
 ```bash
