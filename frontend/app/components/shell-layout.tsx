@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -19,11 +19,26 @@ const NAV_ITEMS = [
 
 export function ShellLayout({ children }: ShellLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check for auth credentials
+    const auth = localStorage.getItem('ems_auth');
+    if (!auth) {
+      router.push('/login');
+    } else {
+      setAuthenticated(true);
+    }
+  }, [router]);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  // If not authenticated, don't render the layout to prevent flickering
+  if (!authenticated) return null;
 
   return (
     <div className="min-h-screen bg-app lg:grid lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] min-[1440px]:grid-cols-[340px_minmax(0,1fr)]">

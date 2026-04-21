@@ -2,19 +2,11 @@ services:
   ems-backend:
     build:
       context: ./backend
+    # Mount local folder for hot-reloading
+    volumes:
+      - ./backend:/app
     ports:
       - 8080:8080
-
-  ems-frontend:
-    build:
-      context: ./frontend
-    env_file:
-      - ./frontend/.env.docker
-    depends_on:
-      - ems-backend
-      - kong
-    ports:
-      - "3000:3000"
 
   kong:
     image: kong:3.4.0

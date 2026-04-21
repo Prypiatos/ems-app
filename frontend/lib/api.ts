@@ -1,27 +1,36 @@
+"use client";
+
 import axios from 'axios';
 
 /**
  * Centralized API client for all backend communication via Kong Gateway.
- * 
- * Note: In this static frontend setup, we use Basic Auth. 
- * The browser's native credential caching handles the persistence
- * of the username/password after the first 401 response from Kong.
  */
 const api = axios.create({
   baseURL: 'http://localhost:8000/api',
   headers: {
     'Content-Type': 'application/json',
   },
-  // This allows the browser to send credentials (cookies, auth headers) automatically
-  withCredentials: true,
 });
 
-// Response interceptor for global error handling
+// Request interceptor to add the Basic Auth header if credentials exist
+api.interceptors.request.use((config) => {
+  const authHeader = localStorage.getItem('ems_auth');
+  if (authHeader) {
+    config.headers['Authorization'] = `Basic ${authHeader}`;
+  }
+  return config;
+});
+
+// Response interceptor to handle 401s (Unauthorized)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      console.error('Unauthorized access - Kong Gateway rejected credentials');
+      // Clear invalid credentials and redirect to login
+      localStorage.removeItem('ems_auth');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
