@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
+"use client";
+
 import { Geist, Geist_Mono } from "next/font/google";
+import { usePathname } from "next/navigation";
 import { Providers } from "./providers";
 import { ShellLayout } from "./components/shell-layout";
 import "./globals.css";
@@ -14,16 +16,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "E3 Energy Management",
-  description: "Energy Management dashboard shell",
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = usePathname();
+  const isLoginPage = pathname === "/login";
+
   return (
     <html
       lang="en"
@@ -32,7 +32,11 @@ export default function RootLayout({
     >
       <body className="min-h-screen bg-app text-fg antialiased">
         <Providers>
-          <ShellLayout>{children}</ShellLayout>
+          {isLoginPage ? (
+            <main>{children}</main>
+          ) : (
+            <ShellLayout>{children}</ShellLayout>
+          )}
         </Providers>
       </body>
     </html>

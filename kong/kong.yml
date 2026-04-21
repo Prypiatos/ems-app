@@ -1,0 +1,57 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: ems-backend
+    url: http://ems-backend:8080
+    routes:
+      - name: ems-api
+        paths:
+          - /api
+        strip_path: true
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - PATCH
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Version
+        - Content-Length
+        - Content-MD5
+        - Content-Type
+        - Date
+        - Authorization
+      exposed_headers:
+        - X-Auth-Token
+      credentials: true
+      max_age: 3600
+
+  - name: rate-limiting
+    config:
+      second: 5
+      hour: 10000
+      policy: local
+
+  - name: basic-auth
+    config:
+      hide_credentials: true
+
+consumers:
+  - username: admin_user
+    basicauth_credentials:
+      - username: admin
+        password: admin-password-2024
+
+  - username: guest_user
+    basicauth_credentials:
+      - username: guest
+        password: guest-password-2024
