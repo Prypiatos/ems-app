@@ -1,0 +1,1269 @@
+openapi: 3.0.3
+info:
+  title: Energy Management System API
+  version: 1.0.0
+  description: |
+    REST API contract for EMS v1 endpoints.
+    All error payloads follow RFC 7807 Problem Details.
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: Readings
+  - name: Analytics
+  - name: Divisions
+  - name: Alerts
+  - name: Reports
+  - name: Alert Rules
+
+paths:
+  /readings:
+    get:
+      tags: [Readings]
+      summary: List readings
+      operationId: listReadings
+      parameters:
+        - $ref: '#/components/parameters/DivisionIdQuery'
+        - $ref: '#/components/parameters/DeviceIdQuery'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+        - $ref: '#/components/parameters/SortQuery'
+      responses:
+        '200':
+          description: Readings returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadingListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /readings/latest:
+    get:
+      tags: [Readings]
+      summary: Get latest reading per device
+      operationId: getLatestReadings
+      parameters:
+        - $ref: '#/components/parameters/DivisionIdQuery'
+      responses:
+        '200':
+          description: Latest readings returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reading'
+                required: [data]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /readings/history:
+    get:
+      tags: [Readings]
+      summary: Get historical readings for a device
+      operationId: getReadingHistory
+      parameters:
+        - $ref: '#/components/parameters/DeviceIdRequiredQuery'
+        - $ref: '#/components/parameters/FromRequiredQuery'
+        - $ref: '#/components/parameters/ToRequiredQuery'
+        - name: interval
+          in: query
+          description: Aggregation interval
+          required: false
+          schema:
+            type: string
+            enum: [raw, 5m, 15m, 1h, 1d]
+            default: raw
+      responses:
+        '200':
+          description: Historical readings returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deviceId:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reading'
+                required: [deviceId, data]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /analytics/summary:
+    get:
+      tags: [Analytics]
+      summary: Get analytics summary
+      operationId: getAnalyticsSummary
+      parameters:
+        - $ref: '#/components/parameters/FromRequiredQuery'
+        - $ref: '#/components/parameters/ToRequiredQuery'
+        - $ref: '#/components/parameters/DivisionIdQuery'
+      responses:
+        '200':
+          description: Summary returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /analytics/compare:
+    get:
+      tags: [Analytics]
+      summary: Compare analytics between two time windows
+      operationId: compareAnalytics
+      parameters:
+        - name: currentFrom
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: currentTo
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: previousFrom
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: previousTo
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/DivisionIdQuery'
+      responses:
+        '200':
+          description: Comparison returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsComparison'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /analytics/patterns:
+    get:
+      tags: [Analytics]
+      summary: Get usage patterns
+      operationId: getUsagePatterns
+      parameters:
+        - $ref: '#/components/parameters/FromRequiredQuery'
+        - $ref: '#/components/parameters/ToRequiredQuery'
+        - $ref: '#/components/parameters/DivisionIdQuery'
+        - name: granularity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [hour, day, week]
+            default: day
+      responses:
+        '200':
+          description: Patterns returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UsagePattern'
+                required: [data]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /analytics/cost:
+    get:
+      tags: [Analytics]
+      summary: Estimate cost for a period
+      operationId: getCostAnalytics
+      parameters:
+        - $ref: '#/components/parameters/FromRequiredQuery'
+        - $ref: '#/components/parameters/ToRequiredQuery'
+        - $ref: '#/components/parameters/DivisionIdQuery'
+        - name: currency
+          in: query
+          required: false
+          schema:
+            type: string
+            default: USD
+      responses:
+        '200':
+          description: Cost analytics returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostAnalytics'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /divisions:
+    get:
+      tags: [Divisions]
+      summary: List divisions
+      operationId: listDivisions
+      responses:
+        '200':
+          description: Divisions returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Division'
+                required: [data]
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /divisions/{id}/summary:
+    get:
+      tags: [Divisions]
+      summary: Get division summary
+      operationId: getDivisionSummary
+      parameters:
+        - $ref: '#/components/parameters/DivisionIdPath'
+        - $ref: '#/components/parameters/FromRequiredQuery'
+        - $ref: '#/components/parameters/ToRequiredQuery'
+      responses:
+        '200':
+          description: Division summary returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DivisionSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /divisions/{id}/devices:
+    get:
+      tags: [Divisions]
+      summary: List devices in a division
+      operationId: getDivisionDevices
+      parameters:
+        - $ref: '#/components/parameters/DivisionIdPath'
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: Division devices returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                required: [data, pagination]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /divisions/breakdown:
+    get:
+      tags: [Divisions]
+      summary: Get cross-division breakdown
+      operationId: getDivisionBreakdown
+      parameters:
+        - $ref: '#/components/parameters/FromRequiredQuery'
+        - $ref: '#/components/parameters/ToRequiredQuery'
+      responses:
+        '200':
+          description: Breakdown returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DivisionBreakdownItem'
+                required: [data]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /alerts:
+    get:
+      tags: [Alerts]
+      summary: List alerts
+      operationId: listAlerts
+      parameters:
+        - $ref: '#/components/parameters/DivisionIdQuery'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, acknowledged, resolved]
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [low, medium, high, critical]
+        - $ref: '#/components/parameters/PageQuery'
+        - $ref: '#/components/parameters/PageSizeQuery'
+      responses:
+        '200':
+          description: Alerts returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alert'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                required: [data, pagination]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /alerts/{id}/acknowledge:
+    patch:
+      tags: [Alerts]
+      summary: Acknowledge alert
+      operationId: acknowledgeAlert
+      parameters:
+        - $ref: '#/components/parameters/AlertIdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Alert acknowledged
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /alerts/{id}/resolve:
+    patch:
+      tags: [Alerts]
+      summary: Resolve alert
+      operationId: resolveAlert
+      parameters:
+        - $ref: '#/components/parameters/AlertIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                resolutionNote:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+              required: [resolutionNote]
+      responses:
+        '200':
+          description: Alert resolved
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reports/generate:
+    post:
+      tags: [Reports]
+      summary: Generate report
+      operationId: generateReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportGenerateRequest'
+      responses:
+        '202':
+          description: Report generation accepted
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportGenerateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /alert-rules:
+    get:
+      tags: [Alert Rules]
+      summary: List alert rules
+      operationId: listAlertRules
+      parameters:
+        - $ref: '#/components/parameters/DivisionIdQuery'
+        - name: enabled
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Alert rules returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AlertRule'
+                required: [data]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Alert Rules]
+      summary: Create alert rule
+      operationId: createAlertRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleCreateRequest'
+      responses:
+        '201':
+          description: Alert rule created
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /alert-rules/{id}:
+    get:
+      tags: [Alert Rules]
+      summary: Get alert rule by id
+      operationId: getAlertRule
+      parameters:
+        - $ref: '#/components/parameters/AlertRuleIdPath'
+      responses:
+        '200':
+          description: Alert rule returned
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRule'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [Alert Rules]
+      summary: Update alert rule
+      operationId: updateAlertRule
+      parameters:
+        - $ref: '#/components/parameters/AlertRuleIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertRuleUpdateRequest'
+      responses:
+        '200':
+          description: Alert rule updated
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [Alert Rules]
+      summary: Delete alert rule
+      operationId: deleteAlertRule
+      parameters:
+        - $ref: '#/components/parameters/AlertRuleIdPath'
+      responses:
+        '204':
+          description: Alert rule deleted
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/XRateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/XRateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/XRateLimitReset'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    DivisionIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Division identifier
+    AlertIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Alert identifier
+    AlertRuleIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Alert rule identifier
+    DivisionIdQuery:
+      name: divisionId
+      in: query
+      required: false
+      schema:
+        type: string
+    DeviceIdQuery:
+      name: deviceId
+      in: query
+      required: false
+      schema:
+        type: string
+    DeviceIdRequiredQuery:
+      name: deviceId
+      in: query
+      required: true
+      schema:
+        type: string
+    FromRequiredQuery:
+      name: from
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date-time
+    ToRequiredQuery:
+      name: to
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date-time
+    PageQuery:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeQuery:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 50
+    SortQuery:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        example: timestamp:desc
+
+  headers:
+    XRateLimitLimit:
+      description: Requests allowed in the current window.
+      schema:
+        type: integer
+    XRateLimitRemaining:
+      description: Remaining requests in the current window.
+      schema:
+        type: integer
+    XRateLimitReset:
+      description: UNIX timestamp when the rate limit window resets.
+      schema:
+        type: integer
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/XRateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/XRateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/XRateLimitReset'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    NotFound:
+      description: Resource not found
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/XRateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/XRateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/XRateLimitReset'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Conflict:
+      description: Resource state conflict
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/XRateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/XRateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/XRateLimitReset'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    UnprocessableEntity:
+      description: Semantic validation failed
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/XRateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/XRateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/XRateLimitReset'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/XRateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/XRateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/XRateLimitReset'
+        Retry-After:
+          description: Number of seconds to wait before retrying.
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    InternalServerError:
+      description: Unexpected server error
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/XRateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/XRateLimitRemaining'
+        X-RateLimit-Reset:
+          $ref: '#/components/headers/XRateLimitReset'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    ProblemDetails:
+      type: object
+      description: RFC 7807 Problem Details
+      properties:
+        type:
+          type: string
+          format: uri
+          example: https://api.example.com/problems/validation-error
+        title:
+          type: string
+          example: Validation Failed
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: The request payload contains invalid values.
+        instance:
+          type: string
+          format: uri-reference
+          example: /api/v1/alerts/alt_123/resolve
+        traceId:
+          type: string
+          description: Correlation id for debugging
+      required: [type, title, status]
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+      required: [page, pageSize, total]
+
+    Reading:
+      type: object
+      properties:
+        id:
+          type: string
+        deviceId:
+          type: string
+        divisionId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        energyKwh:
+          type: number
+          format: double
+        voltage:
+          type: number
+          format: double
+        current:
+          type: number
+          format: double
+        powerFactor:
+          type: number
+          format: double
+      required: [id, deviceId, divisionId, timestamp, energyKwh]
+
+    ReadingListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reading'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required: [data, pagination]
+
+    AnalyticsSummary:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        totalEnergyKwh:
+          type: number
+          format: double
+        averageDemandKw:
+          type: number
+          format: double
+        peakDemandKw:
+          type: number
+          format: double
+      required: [from, to, totalEnergyKwh, averageDemandKw, peakDemandKw]
+
+    AnalyticsComparison:
+      type: object
+      properties:
+        current:
+          $ref: '#/components/schemas/AnalyticsSummary'
+        previous:
+          $ref: '#/components/schemas/AnalyticsSummary'
+        deltaPercent:
+          type: number
+          format: double
+      required: [current, previous, deltaPercent]
+
+    UsagePattern:
+      type: object
+      properties:
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        averageConsumptionKwh:
+          type: number
+          format: double
+      required: [periodStart, periodEnd, averageConsumptionKwh]
+
+    CostAnalytics:
+      type: object
+      properties:
+        currency:
+          type: string
+        estimatedCost:
+          type: number
+          format: double
+        costPerKwh:
+          type: number
+          format: double
+      required: [currency, estimatedCost, costPerKwh]
+
+    Division:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        deviceCount:
+          type: integer
+      required: [id, name, deviceCount]
+
+    DivisionSummary:
+      type: object
+      properties:
+        divisionId:
+          type: string
+        totalEnergyKwh:
+          type: number
+          format: double
+        averageDemandKw:
+          type: number
+          format: double
+        peakDemandKw:
+          type: number
+          format: double
+      required: [divisionId, totalEnergyKwh, averageDemandKw, peakDemandKw]
+
+    DivisionBreakdownItem:
+      type: object
+      properties:
+        divisionId:
+          type: string
+        divisionName:
+          type: string
+        energyKwh:
+          type: number
+          format: double
+        percentage:
+          type: number
+          format: double
+      required: [divisionId, divisionName, energyKwh, percentage]
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        divisionId:
+          type: string
+        status:
+          type: string
+          enum: [online, degraded, offline]
+      required: [id, name, divisionId, status]
+
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+        divisionId:
+          type: string
+        deviceId:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        status:
+          type: string
+          enum: [open, acknowledged, resolved]
+        message:
+          type: string
+        triggeredAt:
+          type: string
+          format: date-time
+        acknowledgedAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, divisionId, deviceId, severity, status, message, triggeredAt]
+
+    ReportGenerateRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [summary, alerts, cost, usage-pattern]
+        format:
+          type: string
+          enum: [pdf, csv, xlsx]
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        divisionIds:
+          type: array
+          items:
+            type: string
+      required: [type, format, from, to]
+
+    ReportGenerateResponse:
+      type: object
+      properties:
+        reportId:
+          type: string
+        status:
+          type: string
+          enum: [queued]
+        estimatedReadyInSeconds:
+          type: integer
+      required: [reportId, status]
+
+    AlertRule:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        divisionId:
+          type: string
+        metric:
+          type: string
+          enum: [energyKwh, voltage, current, powerFactor]
+        operator:
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        threshold:
+          type: number
+          format: double
+        durationMinutes:
+          type: integer
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        enabled:
+          type: boolean
+      required: [id, name, divisionId, metric, operator, threshold, durationMinutes, severity, enabled]
+
+    AlertRuleCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        divisionId:
+          type: string
+        metric:
+          type: string
+          enum: [energyKwh, voltage, current, powerFactor]
+        operator:
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        threshold:
+          type: number
+          format: double
+        durationMinutes:
+          type: integer
+          minimum: 1
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        enabled:
+          type: boolean
+          default: true
+      required: [name, divisionId, metric, operator, threshold, durationMinutes, severity]
+
+    AlertRuleUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        metric:
+          type: string
+          enum: [energyKwh, voltage, current, powerFactor]
+        operator:
+          type: string
+          enum: [gt, gte, lt, lte, eq]
+        threshold:
+          type: number
+          format: double
+        durationMinutes:
+          type: integer
+          minimum: 1
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        enabled:
+          type: boolean
+      minProperties: 1
