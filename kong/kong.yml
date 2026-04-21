@@ -41,12 +41,17 @@ plugins:
       hour: 10000
       policy: local
 
-  - name: key-auth
+  - name: basic-auth
     config:
-      key_names:
-        - apikey
+      hide_credentials: true
 
 consumers:
-  - username: admin
-    keyauth_credentials:
-      - key: ems-secret-key
+  - username: admin_user
+    basicauth_credentials:
+      - username: admin
+        password: admin-password-2024
+
+  - username: guest_user
+    basicauth_credentials:
+      - username: guest
+        password: guest-password-2024
