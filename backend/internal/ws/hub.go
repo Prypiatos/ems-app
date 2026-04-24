@@ -7,44 +7,49 @@ import (
 
 type Hub struct {
 	Buffer    chan []byte
-	WSClients map[*Client]bool
+	WSClients map[string]map[*Client]bool
 	Mutex     sync.Mutex
 }
 
-func NewHub() *Hub {
+func NewHub(topics []string) *Hub {
+	m := make(map[string]map[*Client]bool)
+	for _, topic := range topics {
+		m[topic] = make(map[*Client]bool)
+	}
+
 	return &Hub{
 		Buffer:    make(chan []byte, 1),
-		WSClients: map[*Client]bool{},
+		WSClients: m,
 	}
 }
 
-func (h *Hub) Register(client *Client) {
+func (h *Hub) Register(client *Client, topic string) {
 	h.Mutex.Lock()
-	h.WSClients[client] = true
+	h.WSClients[topic][client] = true
 	h.Mutex.Unlock()
 }
 
-func (h *Hub) Kickout(client *Client) {
+func (h *Hub) Kickout(client *Client, topic string) {
 	h.Mutex.Lock()
-	h.WSClients[client] = false
-	delete(h.WSClients, client)
+	h.WSClients[topic][client] = false
+	delete(h.WSClients[topic], client)
 	h.Mutex.Unlock()
 }
 
-func (h *Hub) Broadcast(ctx context.Context) {
+func (h *Hub) Broadcast(ctx context.Context, topic string) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case msg := <-h.Buffer:
 			h.Mutex.Lock()
-			for client, clientIsAlive := range h.WSClients {
+			for client, clientIsAlive := range h.WSClients[topic] {
 				if clientIsAlive {
 					client.Buffer <- msg
 				} else {
 					client.Conn.Close()
-					h.WSClients[client] = false
-					delete(h.WSClients, client)
+					h.WSClients[topic][client] = false
+					delete(h.WSClients[topic], client)
 				}
 			}
 			h.Mutex.Unlock()

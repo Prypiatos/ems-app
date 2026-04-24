@@ -107,7 +107,7 @@ func (s *Server) GetLiveReadings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wsClient := ws.NewClient(conn)
-	s.wsHub.Register(wsClient)
+	s.wsHub.Register(wsClient, "energy.readings")
 
 	ctx, cancel := context.WithCancel(r.Context())
 
@@ -121,5 +121,5 @@ func (s *Server) GetLiveReadings(w http.ResponseWriter, r *http.Request) {
 	}
 	cancel()
 
-	s.wsHub.Kickout(wsClient)
+	s.wsHub.Kickout(wsClient, "energy.readings")
 }

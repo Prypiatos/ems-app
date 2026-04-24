@@ -1,16 +1,20 @@
 package tests
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
+	"github.com/Prypiatos/ems-app/backend/internal/ws"
 	"github.com/Prypiatos/shared-models/models"
+	"github.com/gorilla/websocket"
 )
 
 func TestHome(t *testing.T) {
@@ -154,6 +158,70 @@ func TestGetNodeDetailsByID(t *testing.T) {
 	}
 }
 
+func TestGetLiveReadings(t *testing.T) {
+	topics := []string{"energy.readings", "energy.anomalies", "energy.forecasts"}
+	t.Run("upgrades and unregisters client on disconnect", func(t *testing.T) {
+		hub := ws.NewHub(topics)
+		server := routes.NewServer(&StubDeviceStore{}, hub)
+		ts := httptest.NewServer(server)
+		defer ts.Close()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		go hub.Broadcast(ctx, "energy.readings")
+		defer cancel()
+
+		wsURL := "ws" + ts.URL[len("http"):] + "/readings"
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		if err != nil {
+			t.Fatalf("websocket dial failed: %v", err)
+		}
+
+		waitForClientCount(t, hub, 1, time.Second, "energy.readings")
+
+		if err := conn.Close(); err != nil {
+			t.Fatalf("failed to close websocket connection: %v", err)
+		}
+
+		waitForClientCount(t, hub, 0, time.Second, "energy.readings")
+	})
+
+	t.Run("connected client receives broadcasts", func(t *testing.T) {
+		hub := ws.NewHub(topics)
+		server := routes.NewServer(&StubDeviceStore{}, hub)
+		ts := httptest.NewServer(server)
+		defer ts.Close()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		go hub.Broadcast(ctx, "energy.readings")
+		defer cancel()
+
+		wsURL := "ws" + ts.URL[len("http"):] + "/readings"
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		if err != nil {
+			t.Fatalf("websocket dial failed: %v", err)
+		}
+		defer conn.Close()
+
+		waitForClientCount(t, hub, 1, time.Second, "energy.readings")
+
+		want := []byte(`{"node_id":"node_1","power_w":120.5}`)
+		hub.Buffer <- want
+
+		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+			t.Fatalf("failed setting read deadline: %v", err)
+		}
+
+		_, got, err := conn.ReadMessage()
+		if err != nil {
+			t.Fatalf("failed reading broadcast message: %v", err)
+		}
+
+		if string(got) != string(want) {
+			t.Fatalf("unexpected broadcast payload: got %s want %s", got, want)
+		}
+	})
+}
+
 type StubDeviceStore struct {
 	healthRecords map[string]models.HealthStatus
 	db            map[string]models.Node
@@ -267,4 +335,26 @@ func getDeviceFromResponse(t testing.TB, body io.Reader) (node models.Node) {
 	}
 
 	return
+}
+
+func waitForClientCount(t testing.TB, hub *ws.Hub, want int, timeout time.Duration, topic string) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		hub.Mutex.Lock()
+		got := len(hub.WSClients[topic])
+		hub.Mutex.Unlock()
+
+		if got == want {
+			return
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	hub.Mutex.Lock()
+	got := len(hub.WSClients[topic])
+	hub.Mutex.Unlock()
+	t.Fatalf("timeout waiting for websocket clients count: got %d want %d", got, want)
 }

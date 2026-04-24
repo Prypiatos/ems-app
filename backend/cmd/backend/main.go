@@ -25,6 +25,8 @@ func main() {
 	ctx, cancel := tools.WithSignalCancel()
 	defer cancel()
 
+	topics := []string{"energy.readings", "energy.anomalies", "energy.forecasts"}
+
 	topicGroupMap := map[string]string{
 		"energy.readings":  "energy-readings",
 		"energy.anomalies": "energy-anomalies",
@@ -46,8 +48,11 @@ func main() {
 
 	dataChan := topicChannelMap["energy.readings"]
 
-	wsHub := ws.NewHub()
-	go wsHub.Broadcast(ctx)
+	wsHub := ws.NewHub(topics)
+
+	for _, topic := range topics {
+		go wsHub.Broadcast(ctx, topic)
+	}
 
 	go func() {
 		for {
