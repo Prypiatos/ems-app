@@ -15,7 +15,7 @@ import (
 
 func TestHome(t *testing.T) {
 
-	server := routes.NewServer(&StubDeviceStore{})
+	server := routes.NewServer(&StubDeviceStore{}, nil)
 
 	tests := []struct {
 		name   string
@@ -50,7 +50,7 @@ func TestGetHealthByID(t *testing.T) {
 		"node_2": {NodeID: "node_2", Status: types.DEGRADED, Timestamp: 1713000100, Uptime: 86410, MQTTConnected: true, WifiConnected: false, SensorOK: true, BufferedCount: 2},
 		"node_3": {NodeID: "node_3", Status: types.OFFLINE_INTENDED, Timestamp: 1713000200, Uptime: 86420, MQTTConnected: false, WifiConnected: false, SensorOK: false, BufferedCount: 8},
 	}}
-	server := routes.NewServer(deviceStore)
+	server := routes.NewServer(deviceStore, nil)
 
 	tests := []struct {
 		name   string
@@ -98,7 +98,7 @@ func TestGetNodes(t *testing.T) {
 		}
 
 		deviceStore := &StubDeviceStore{healthRecords: nil, nodes: wantedNodes}
-		server := routes.NewServer(deviceStore)
+		server := routes.NewServer(deviceStore, nil)
 
 		req, err := http.NewRequest(http.MethodGet, "/nodes", nil)
 		if err != nil {
@@ -120,7 +120,7 @@ func TestGetNodes(t *testing.T) {
 func TestGetNodeDetailsByID(t *testing.T) {
 
 	deviceStore := &StubDeviceStore{db: map[string]models.Node{"node_1": {NodeID: "node_1", NodeType: "typeA", Status: types.ONLINE}}}
-	server := routes.NewServer(deviceStore)
+	server := routes.NewServer(deviceStore, nil)
 
 	tests := []struct {
 		name   string
