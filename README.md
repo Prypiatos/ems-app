@@ -1,6 +1,6 @@
 # Energy Management System (E3)
 
-Currently in very early development. This repository will host the backend Go service and eventually the frontend dashboard of the Energy Management System. 
+Currently in early development. This repository will host the backend Go service and eventually the frontend dashboard of the Energy Management System. 
 
 ## Project Structure
 - `backend/` Go backend service
