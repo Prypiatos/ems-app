@@ -25,13 +25,26 @@ func main() {
 	ctx, cancel := tools.WithSignalCancel()
 	defer cancel()
 
-	kafkaConsumer, err := kafka.NewConsumer("energy.readings", "energy-readings")
-	if err != nil {
-		log.Println(err)
-		return
+	topicGroupMap := map[string]string{
+		"energy.readings":  "energy-readings",
+		"energy.anomalies": "energy-anomalies",
+		"energy.forecasts": "energy-forecasts",
 	}
 
-	dataChan := kafkaConsumer.Consume(ctx)
+	topicChannelMap := make(map[string]<-chan []byte)
+	topicConsumerMap := make(map[string]*kafka.ConfluentConsumer)
+
+	for k, v := range topicGroupMap {
+		kafkaConsumer, err := kafka.NewConsumer(k, v)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		topicConsumerMap[k] = kafkaConsumer
+		topicChannelMap[k] = kafkaConsumer.Consume(ctx)
+	}
+
+	dataChan := topicChannelMap["energy.readings"]
 
 	wsHub := ws.NewHub()
 	go wsHub.Broadcast(ctx)
