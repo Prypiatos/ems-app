@@ -70,8 +70,8 @@ func (cc *ConfluentConsumer) Consume(ctx context.Context) <-chan []byte {
 				)
 			case ckafka.Error:
 				slog.Error("consumer error",
-					"code", e.Code,
-					"message", e.Error,
+					"code", e.Code(),
+					"message", e.Error(),
 				)
 			}
 		}
