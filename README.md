@@ -7,6 +7,32 @@ Currently in very early development. This repository will host the backend Go se
 - `docker-compose.yml` Local container orchestration
 - `frontend/` Next.js frontend dashboard UI
 
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+    U[Client / Frontend / API Consumer] -->|1. Login OIDC OAuth2| KC[Keycloak IAM]
+    U -->|2. API call + Bearer token | K[Kong API Gateway]
+   
+    subgraph Security["Identity & Access"]
+      KC
+    end
+
+    subgraph AppLayer["Application Layer"]
+      B[ems-backend<br/>Custom service]
+    end
+
+    subgraph Messaging["Event Streaming Layer"]
+      KB[(Kafka Broker)]
+     
+    end
+
+    K -->|Validate JWT via Keycloak JWKS Introspection| KC
+    K -->|Route Proxy authorized requests| B
+    B <--> |Produce Consume events| KB
+
+```
+
 ## Quick Start - Backend
 
 Install air for hot reload
