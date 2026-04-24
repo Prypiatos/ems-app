@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 )
 
@@ -9,6 +10,8 @@ type Consumer interface {
 	Close() error
 	Poll(timeoutMs int) any
 }
+
+var ErrNoBrokersAvailable = errors.New("no Kafka Brokers available")
 
 func Consume(ctx context.Context, c Consumer) {
 	for {
