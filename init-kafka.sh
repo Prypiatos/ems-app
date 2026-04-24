@@ -1,9 +1,6 @@
 #!/bin/sh
 set -e
 
-echo "=== Waiting for Kafka to be ready ==="
-sleep 10
-
 TOPICS="energy.readings energy.anomalies energy.forecasts"
 
 PARTITIONS=1
