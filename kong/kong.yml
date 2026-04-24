@@ -5,10 +5,20 @@ services:
   - name: ems-backend
     url: http://ems-backend:8080
     routes:
+      - name: ems-ws
+        paths:
+          - /api/ws
+        strip_path: true
+        # No basic-auth here to allow browser WebSocket connections
+        
       - name: ems-api
         paths:
           - /api
         strip_path: true
+        plugins:
+          - name: basic-auth
+            config:
+              hide_credentials: true
 
 plugins:
   - name: cors
@@ -40,10 +50,6 @@ plugins:
       second: 5
       hour: 10000
       policy: local
-
-  - name: basic-auth
-    config:
-      hide_credentials: true
 
 consumers:
   - username: admin_user

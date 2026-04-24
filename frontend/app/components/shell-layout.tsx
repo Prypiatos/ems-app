@@ -33,9 +33,10 @@ export function ShellLayout({ children }: ShellLayoutProps) {
     }
   }, [router]);
 
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  const handleLogout = () => {
+    localStorage.removeItem('ems_auth');
+    router.push('/login');
+  };
 
   // If not authenticated, don't render the layout to prevent flickering
   if (!authenticated) return null;
@@ -77,9 +78,20 @@ export function ShellLayout({ children }: ShellLayoutProps) {
 
         <div className="space-y-4 border-t border-border-subtle p-6 xl:p-8">
           <ThemeToggle />
-          <div className="rounded-2xl border border-border-subtle bg-panel p-4">
-            <p className="text-sm font-semibold">Mia Chen</p>
-            <p className="text-xs text-muted">Grid Operations Lead</p>
+          <div className="group relative rounded-2xl border border-border-subtle bg-panel p-4 transition-all hover:bg-soft/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold">Mia Chen</p>
+                <p className="text-xs text-muted">Grid Operations Lead</p>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="rounded-lg p-2 text-muted hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                title="Log out"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -151,9 +163,19 @@ export function ShellLayout({ children }: ShellLayoutProps) {
                 })}
               </nav>
 
-              <div className="mt-6 rounded-2xl border border-border-subtle bg-panel p-4">
-                <p className="text-sm font-semibold">Mia Chen</p>
-                <p className="text-xs text-muted">Grid Operations Lead</p>
+              <div className="mt-6 space-y-4">
+                <div className="flex items-center justify-between rounded-2xl border border-border-subtle bg-panel p-4">
+                  <div>
+                    <p className="text-sm font-semibold">Mia Chen</p>
+                    <p className="text-xs text-muted">Grid Operations Lead</p>
+                  </div>
+                  <button 
+                    onClick={handleLogout}
+                    className="rounded-lg p-2 text-muted hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                  </button>
+                </div>
               </div>
             </aside>
           </>
