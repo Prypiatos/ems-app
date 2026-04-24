@@ -205,7 +205,7 @@ func TestGetLiveReadings(t *testing.T) {
 		waitForClientCount(t, hub, 1, time.Second, "energy.readings")
 
 		want := []byte(`{"node_id":"node_1","power_w":120.5}`)
-		hub.Buffer <- want
+		hub.Buffer["energy.readings"] <- want
 
 		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
 			t.Fatalf("failed setting read deadline: %v", err)

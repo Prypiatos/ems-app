@@ -46,32 +46,34 @@ func main() {
 		topicChannelMap[k] = kafkaConsumer.Consume(ctx)
 	}
 
-	dataChan := topicChannelMap["energy.readings"]
-
 	wsHub := ws.NewHub(topics)
 
 	for _, topic := range topics {
 		go wsHub.Broadcast(ctx, topic)
 	}
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				log.Println("producer exit")
-				return
-			case msg := <-dataChan:
-				select {
-				case wsHub.Buffer <- msg:
-				default:
-					log.Println("buffer full. dropping old message")
-					<-wsHub.Buffer
-					wsHub.Buffer <- msg
+	for _, topic := range topics {
+		dataChan := topicChannelMap[topic]
 
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					log.Println("producer exit")
+					return
+				case msg := <-dataChan:
+					select {
+					case wsHub.Buffer[topic] <- msg:
+					default:
+						log.Println("buffer full. dropping old message")
+						<-wsHub.Buffer[topic]
+						wsHub.Buffer[topic] <- msg
+
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	deviceStore := bootstrap.NewDeviceStore()
 	server := routes.NewServer(deviceStore, wsHub)

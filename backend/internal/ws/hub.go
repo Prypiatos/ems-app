@@ -6,20 +6,22 @@ import (
 )
 
 type Hub struct {
-	Buffer    chan []byte
+	Buffer    map[string]chan []byte
 	WSClients map[string]map[*Client]bool
 	Mutex     sync.Mutex
 }
 
 func NewHub(topics []string) *Hub {
-	m := make(map[string]map[*Client]bool)
+	wsmap := make(map[string]map[*Client]bool)
+	buffermap := make(map[string]chan []byte)
 	for _, topic := range topics {
-		m[topic] = make(map[*Client]bool)
+		wsmap[topic] = make(map[*Client]bool)
+		buffermap[topic] = make(chan []byte, 1)
 	}
 
 	return &Hub{
-		Buffer:    make(chan []byte, 1),
-		WSClients: m,
+		Buffer:    buffermap,
+		WSClients: wsmap,
 	}
 }
 
@@ -41,7 +43,7 @@ func (h *Hub) Broadcast(ctx context.Context, topic string) {
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-h.Buffer:
+		case msg := <-h.Buffer[topic]:
 			h.Mutex.Lock()
 			for client, clientIsAlive := range h.WSClients[topic] {
 				if clientIsAlive {
