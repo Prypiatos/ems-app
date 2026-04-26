@@ -51,9 +51,21 @@ go run cmd/misc/kafka_producer.go
 
 ```bash
 curl http://localhost:8080/
+curl http://localhost:8080/health
 curl http://localhost:8080/health/node_1
 curl http://localhost:8080/nodes
 ```
+
+## PostgreSQL Metadata DB
+
+From repo root:
+
+```bash
+make db-migrate-postgres
+make db-seed-postgres
+```
+
+`POSTGRES_URL` defaults to `postgres://ems:ems@localhost:5432/ems_metadata?sslmode=disable`.
 
 ## Notes
 - Current data is in-memory seed data for development/testing.
