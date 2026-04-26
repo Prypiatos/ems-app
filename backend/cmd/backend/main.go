@@ -9,10 +9,12 @@ import (
 	"os"
 
 	"github.com/Prypiatos/ems-app/backend/internal/bootstrap"
+	postgresdb "github.com/Prypiatos/ems-app/backend/internal/db/postgres"
 	"github.com/Prypiatos/ems-app/backend/internal/kafka"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 	"github.com/Prypiatos/ems-app/backend/internal/tools"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -24,6 +26,20 @@ func main() {
 	// --- context with SIGTERM handling ---
 	ctx, cancel := tools.WithSignalCancel()
 	defer cancel()
+
+	_ = godotenv.Load()
+
+	postgresURL := os.Getenv("POSTGRES_URL")
+	if postgresURL == "" {
+		postgresURL = os.Getenv("DATABASE_URL")
+	}
+
+	postgresPool, err := postgresdb.NewPool(ctx, postgresURL)
+	if err != nil {
+		slog.Error("failed to initialize PostgreSQL", "error", err)
+		return
+	}
+	defer postgresPool.Close()
 
 	topics := []string{"energy.readings", "energy.anomalies", "energy.forecasts"}
 
@@ -74,7 +90,9 @@ func main() {
 	}
 
 	deviceStore := bootstrap.NewDeviceStore()
+	repository := postgresdb.NewRepository(postgresPool)
 	server := routes.NewServer(deviceStore, wsHub)
+	server.SetPostgresHealthChecker(repository)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", server)
