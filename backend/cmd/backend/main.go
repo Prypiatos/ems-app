@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Prypiatos/ems-app/backend/internal/bootstrap"
+	memorydb "github.com/Prypiatos/ems-app/backend/internal/db/memory"
 	postgresdb "github.com/Prypiatos/ems-app/backend/internal/db/postgres"
 	"github.com/Prypiatos/ems-app/backend/internal/kafka"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
@@ -89,8 +90,10 @@ func main() {
 	}
 
 	deviceStore := bootstrap.NewDeviceStore()
+	defaultDB := memorydb.NewRepository()
 	repository := postgresdb.NewRepository(postgresPool)
 	server := routes.NewServer(deviceStore, nil)
+	server.SetDatabase(defaultDB)
 	server.SetPostgresHealthChecker(repository)
 
 	// --- WebSocket hub ---
