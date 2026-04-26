@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Prypiatos/ems-app/backend/internal/db"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
 	"github.com/Prypiatos/shared-models/models"
@@ -21,6 +22,7 @@ type DeviceStore interface {
 type Server struct {
 	store           DeviceStore
 	wsHub           *ws.Hub
+	db              db.Repository
 	postgresChecker PostgresHealthChecker
 	http.Handler
 }
@@ -58,6 +60,10 @@ func setupAPI(s *Server) {
 
 func (s *Server) SetPostgresHealthChecker(checker PostgresHealthChecker) {
 	s.postgresChecker = checker
+}
+
+func (s *Server) SetDatabase(repository db.Repository) {
+	s.db = repository
 }
 
 func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
