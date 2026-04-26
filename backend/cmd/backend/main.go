@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/Prypiatos/ems-app/backend/internal/bootstrap"
+	memorydb "github.com/Prypiatos/ems-app/backend/internal/db/memory"
 	postgresdb "github.com/Prypiatos/ems-app/backend/internal/db/postgres"
 	"github.com/Prypiatos/ems-app/backend/internal/kafka"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
@@ -50,7 +51,7 @@ func main() {
 	}
 
 	topicChannelMap := make(map[string]<-chan []byte)
-	topicConsumerMap := make(map[string]*kafka.ConfluentConsumer)
+	topicConsumerMap := make(map[string]kafka.Consumer)
 
 	for k, v := range topicGroupMap {
 		kafkaConsumer, err := kafka.NewConsumer(k, v)
@@ -90,8 +91,10 @@ func main() {
 	}
 
 	deviceStore := bootstrap.NewDeviceStore()
+	defaultDB := memorydb.NewRepository()
 	repository := postgresdb.NewRepository(postgresPool)
 	server := routes.NewServer(deviceStore, wsHub)
+	server.SetDatabase(defaultDB)
 	server.SetPostgresHealthChecker(repository)
 
 	mux := http.NewServeMux()
