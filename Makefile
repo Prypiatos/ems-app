@@ -1,10 +1,11 @@
 BACKEND_DIR  := backend
 FRONTEND_DIR := frontend
 BINARY_NAME  := ems-backend
+POSTGRES_URL ?= postgres://ems:ems@localhost:5432/ems_metadata?sslmode=disable
 
 .PHONY: run run-backend run-frontend test test-backend test-frontend \
         build build-backend build-frontend lint lint-backend lint-frontend \
-        clean help
+        db-migrate-postgres db-seed-postgres clean help
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -46,6 +47,12 @@ lint-backend: ## Run golangci-lint (or go vet as fallback)
 
 lint-frontend: ## Run ESLint via npm
 	cd $(FRONTEND_DIR) && npm run lint
+
+db-migrate-postgres: ## Run PostgreSQL migrations (golang-migrate)
+	migrate -path db/postgres/migrations -database "$(POSTGRES_URL)" up
+
+db-seed-postgres: ## Seed PostgreSQL metadata data
+	psql "$(POSTGRES_URL)" -f db/postgres/seed.sql
 
 clean: ## Remove build artifacts
 	rm -rf $(BACKEND_DIR)/bin $(BACKEND_DIR)/tmp

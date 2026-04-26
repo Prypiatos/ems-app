@@ -12,10 +12,13 @@ import (
 	"time"
 
 	"github.com/Prypiatos/ems-app/backend/internal/bootstrap"
+	memorydb "github.com/Prypiatos/ems-app/backend/internal/db/memory"
+	postgresdb "github.com/Prypiatos/ems-app/backend/internal/db/postgres"
 	"github.com/Prypiatos/ems-app/backend/internal/kafka"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 	"github.com/Prypiatos/ems-app/backend/internal/tools"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -26,6 +29,21 @@ func main() {
 
 	// --- context with SIGTERM handling ---
 	ctx, cancel := tools.WithSignalCancel()
+	defer cancel()
+
+	_ = godotenv.Load()
+
+	postgresURL := os.Getenv("POSTGRES_URL")
+	if postgresURL == "" {
+		postgresURL = os.Getenv("DATABASE_URL")
+	}
+
+	postgresPool, err := postgresdb.NewPool(ctx, postgresURL)
+	if err != nil {
+		slog.Error("failed to initialize PostgreSQL", "error", err)
+		return
+	}
+	defer postgresPool.Close()
 
 	// --- Kafka consumers ---
 	consumerConfigs := []struct {
@@ -72,7 +90,11 @@ func main() {
 	}
 
 	deviceStore := bootstrap.NewDeviceStore()
+	defaultDB := memorydb.NewRepository()
+	repository := postgresdb.NewRepository(postgresPool)
 	server := routes.NewServer(deviceStore, nil)
+	server.SetDatabase(defaultDB)
+	server.SetPostgresHealthChecker(repository)
 
 	// --- WebSocket hub ---
 	wsHub := ws.NewHub(slog.Default())

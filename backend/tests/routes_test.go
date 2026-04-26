@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -88,6 +89,54 @@ func TestGetHealthByID(t *testing.T) {
 		})
 	}
 
+}
+
+func TestGetHealth(t *testing.T) {
+	t.Run("returns degraded when postgres checker is not configured", func(t *testing.T) {
+		server := routes.NewServer(&StubDeviceStore{}, &StubStreamClient{})
+		req, err := http.NewRequest(http.MethodGet, "/health", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp := httptest.NewRecorder()
+		server.ServeHTTP(resp, req)
+
+		assertStatusCode(t, resp.Code, http.StatusServiceUnavailable)
+		assertContentType(t, resp, types.JSONContentType)
+	})
+
+	t.Run("returns ok when postgres is reachable", func(t *testing.T) {
+		server := routes.NewServer(&StubDeviceStore{}, &StubStreamClient{})
+		server.SetPostgresHealthChecker(&StubPostgresChecker{})
+
+		req, err := http.NewRequest(http.MethodGet, "/health", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp := httptest.NewRecorder()
+		server.ServeHTTP(resp, req)
+
+		assertStatusCode(t, resp.Code, http.StatusOK)
+		assertContentType(t, resp, types.JSONContentType)
+	})
+
+	t.Run("returns degraded when postgres ping fails", func(t *testing.T) {
+		server := routes.NewServer(&StubDeviceStore{}, &StubStreamClient{})
+		server.SetPostgresHealthChecker(&StubPostgresChecker{err: errors.New("postgres down")})
+
+		req, err := http.NewRequest(http.MethodGet, "/health", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		resp := httptest.NewRecorder()
+		server.ServeHTTP(resp, req)
+
+		assertStatusCode(t, resp.Code, http.StatusServiceUnavailable)
+		assertContentType(t, resp, types.JSONContentType)
+	})
 }
 
 func TestGetNodes(t *testing.T) {
@@ -255,6 +304,14 @@ type StubDeviceStore struct {
 	healthRecords map[string]models.HealthStatus
 	db            map[string]models.Node
 	nodes         []models.Node
+}
+
+type StubPostgresChecker struct {
+	err error
+}
+
+func (s *StubPostgresChecker) Ping(context.Context) error {
+	return s.err
 }
 
 func (s *StubDeviceStore) GetDeviceByID(node_id string) (models.Node, error) {

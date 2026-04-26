@@ -1,6 +1,6 @@
 # Energy Management System (E3)
 
-Currently in very early development. This repository will host the backend Go service and eventually the frontend dashboard of the Energy Management System. 
+Currently in early development. This repository will host the backend Go service and eventually the frontend dashboard of the Energy Management System. 
 
 ## Project Structure
 - `backend/` Go backend service
@@ -77,9 +77,21 @@ go run cmd/misc/kafka_producer.go
 
 ```bash
 curl http://localhost:8080/
+curl http://localhost:8080/health
 curl http://localhost:8080/health/node_1
 curl http://localhost:8080/nodes
 ```
+
+## PostgreSQL Metadata DB
+
+From repo root:
+
+```bash
+make db-migrate-postgres
+make db-seed-postgres
+```
+
+`POSTGRES_URL` defaults to `postgres://ems:ems@localhost:5432/ems_metadata?sslmode=disable`.
 
 ## Notes
 - Current data is in-memory seed data for development/testing.

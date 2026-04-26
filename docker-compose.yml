@@ -1,14 +1,36 @@
 services:
   ems-backend:
     depends_on:
-      - kafka-init
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     build:
       context: ./backend
     # Mount local folder for hot-reloading
     volumes:
       - ./backend:/app
+    environment:
+      POSTGRES_URL: postgres://ems:ems@postgres:5432/ems_metadata?sslmode=disable
     ports:
       - 8080:8080
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ems_metadata
+      POSTGRES_USER: ems
+      POSTGRES_PASSWORD: ems
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ems -d ems_metadata"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   kong:
     image: kong:3.4.0
@@ -66,3 +88,6 @@ services:
       - ./init-kafka.sh:/init-kafka.sh
     entrypoint: ["/bin/sh", "/init-kafka.sh"]
     restart: "no"
+
+volumes:
+  postgres-data:

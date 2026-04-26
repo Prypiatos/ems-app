@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/Prypiatos/ems-app/backend/internal/db"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/shared-models/models"
 	"github.com/gorilla/websocket"
@@ -25,9 +27,15 @@ type StreamClient interface {
 	Consume(ctx context.Context) <-chan StreamResult
 }
 
+type PostgresHealthChecker interface {
+	Ping(ctx context.Context) error
+}
+
 type Server struct {
-	stream StreamClient
-	store  DeviceStore
+	stream          StreamClient
+	store           DeviceStore
+	db              db.Repository
+	postgresChecker PostgresHealthChecker
 	http.Handler
 }
 
@@ -45,6 +53,7 @@ func setupAPI(s *Server) {
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /", s.Home)
+	router.HandleFunc("GET /health", s.GetHealth)
 	router.HandleFunc("GET /health/{id}", s.GetHealthByID)
 	router.HandleFunc("GET /nodes/{id}", s.GetNodeDetailsByID)
 	router.HandleFunc("GET /nodes", s.GetNodes)
@@ -57,6 +66,14 @@ func setupAPI(s *Server) {
 	s.Handler = router
 }
 
+func (s *Server) SetPostgresHealthChecker(checker PostgresHealthChecker) {
+	s.postgresChecker = checker
+}
+
+func (s *Server) SetDatabase(repository db.Repository) {
+	s.db = repository
+}
+
 func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
@@ -64,6 +81,36 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write([]byte("Welcome to Energy Management System"))
+}
+
+func (s *Server) GetHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", types.JSONContentType)
+
+	response := map[string]any{
+		"status":   "ok",
+		"postgres": "up",
+	}
+
+	if s.postgresChecker == nil {
+		response["status"] = "degraded"
+		response["postgres"] = "unconfigured"
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := s.postgresChecker.Ping(ctx); err != nil {
+		response["status"] = "degraded"
+		response["postgres"] = "down"
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func (s *Server) GetHealthByID(w http.ResponseWriter, r *http.Request) {
