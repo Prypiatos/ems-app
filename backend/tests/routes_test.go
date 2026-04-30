@@ -8,17 +8,18 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
-
-	"github.com/gorilla/websocket"
+	"time"
 
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
+	"github.com/Prypiatos/ems-app/backend/internal/ws"
 	"github.com/Prypiatos/shared-models/models"
+	"github.com/gorilla/websocket"
 )
 
 func TestHome(t *testing.T) {
 
-	server := routes.NewServer(&StubDeviceStore{}, &StubStreamClient{})
+	server := routes.NewServer(&StubDeviceStore{}, nil)
 
 	tests := []struct {
 		name   string
@@ -53,7 +54,7 @@ func TestGetHealthByID(t *testing.T) {
 		"node_2": {NodeID: "node_2", Status: types.DEGRADED, Timestamp: 1713000100, Uptime: 86410, MQTTConnected: true, WifiConnected: false, SensorOK: true, BufferedCount: 2},
 		"node_3": {NodeID: "node_3", Status: types.OFFLINE_INTENDED, Timestamp: 1713000200, Uptime: 86420, MQTTConnected: false, WifiConnected: false, SensorOK: false, BufferedCount: 8},
 	}}
-	server := routes.NewServer(deviceStore, &StubStreamClient{})
+	server := routes.NewServer(deviceStore, nil)
 
 	tests := []struct {
 		name   string
@@ -101,7 +102,7 @@ func TestGetNodes(t *testing.T) {
 		}
 
 		deviceStore := &StubDeviceStore{healthRecords: nil, nodes: wantedNodes}
-		server := routes.NewServer(deviceStore, &StubStreamClient{})
+		server := routes.NewServer(deviceStore, nil)
 
 		req, err := http.NewRequest(http.MethodGet, "/nodes", nil)
 		if err != nil {
@@ -123,7 +124,7 @@ func TestGetNodes(t *testing.T) {
 func TestGetNodeDetailsByID(t *testing.T) {
 
 	deviceStore := &StubDeviceStore{db: map[string]models.Node{"node_1": {NodeID: "node_1", NodeType: "typeA", Status: types.ONLINE}}}
-	server := routes.NewServer(deviceStore, &StubStreamClient{})
+	server := routes.NewServer(deviceStore, nil)
 
 	tests := []struct {
 		name   string
@@ -158,97 +159,67 @@ func TestGetNodeDetailsByID(t *testing.T) {
 }
 
 func TestGetLiveReadings(t *testing.T) {
-	tests := []struct {
-		name      string
-		results   []routes.StreamResult
-		wantMsgs  []string
-		wantCode  int
-		expectErr bool
-	}{
-		{
-			name: "receive a single message",
-			results: []routes.StreamResult{
-				{Data: []byte("hello world")},
-			},
-			wantMsgs:  []string{"hello world"},
-			expectErr: false,
-		},
-		{
-			name: "receive multiple messages in sequence",
-			results: []routes.StreamResult{
-				{Data: []byte("packet 1")},
-				{Data: []byte("packet 2")},
-				{Data: []byte("packet 3")},
-			},
-			wantMsgs:  []string{"packet 1", "packet 2", "packet 3"},
-			expectErr: false,
-		},
-		{
-			name: "stream failure returns close message",
-			results: []routes.StreamResult{
-				{Error: types.ErrMockError},
-			},
-			wantMsgs:  []string{"Stream Unavailable"},
-			wantCode:  websocket.CloseInternalServerErr,
-			expectErr: true,
-		},
-	}
+	topics := []string{"energy.readings", "energy.anomalies", "energy.forecasts"}
+	t.Run("upgrades and unregisters client on disconnect", func(t *testing.T) {
+		hub := ws.NewHub(topics)
+		server := routes.NewServer(&StubDeviceStore{}, hub)
+		ts := httptest.NewServer(server)
+		defer ts.Close()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := routes.NewServer(&StubDeviceStore{}, &StubStreamClient{results: tt.results})
-			ts := httptest.NewServer(server)
-			defer ts.Close()
+		ctx, cancel := context.WithCancel(context.Background())
+		go hub.Broadcast(ctx, "energy.readings")
+		defer cancel()
 
-			wsURL := "ws" + ts.URL[len("http"):] + "/readings"
-			ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-			if err != nil {
-				t.Fatalf("dial failed: %v", err)
-			}
-			defer ws.Close()
-
-			if tt.expectErr {
-				_, _, err := ws.ReadMessage()
-				if err == nil {
-					t.Fatal("expected an error but got none")
-				}
-				if !websocket.IsCloseError(err, tt.wantCode) {
-					t.Errorf("got error code %v, want %d", err, tt.wantCode)
-				}
-			} else {
-				for _, want := range tt.wantMsgs {
-					_, resp, err := ws.ReadMessage()
-					if err != nil {
-						t.Fatalf("unexpected error reading message: %v", err)
-					}
-					if string(resp) != want {
-						t.Errorf("got %q, want %q", string(resp), want)
-					}
-				}
-			}
-		})
-	}
-}
-
-type StubStreamClient struct {
-	results []routes.StreamResult
-}
-
-func (ss *StubStreamClient) Consume(ctx context.Context) <-chan routes.StreamResult {
-	outchan := make(chan routes.StreamResult)
-
-	go func() {
-		defer close(outchan)
-		for _, res := range ss.results {
-			select {
-			case <-ctx.Done():
-				return
-			case outchan <- res:
-			}
+		wsURL := "ws" + ts.URL[len("http"):] + "/readings"
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		if err != nil {
+			t.Fatalf("websocket dial failed: %v", err)
 		}
-	}()
 
-	return outchan
+		waitForClientCount(t, hub, 1, time.Second, "energy.readings")
+
+		if err := conn.Close(); err != nil {
+			t.Fatalf("failed to close websocket connection: %v", err)
+		}
+
+		waitForClientCount(t, hub, 0, time.Second, "energy.readings")
+	})
+
+	t.Run("connected client receives broadcasts", func(t *testing.T) {
+		hub := ws.NewHub(topics)
+		server := routes.NewServer(&StubDeviceStore{}, hub)
+		ts := httptest.NewServer(server)
+		defer ts.Close()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		go hub.Broadcast(ctx, "energy.readings")
+		defer cancel()
+
+		wsURL := "ws" + ts.URL[len("http"):] + "/readings"
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+		if err != nil {
+			t.Fatalf("websocket dial failed: %v", err)
+		}
+		defer conn.Close()
+
+		waitForClientCount(t, hub, 1, time.Second, "energy.readings")
+
+		want := []byte(`{"node_id":"node_1","power_w":120.5}`)
+		hub.Buffer["energy.readings"] <- want
+
+		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+			t.Fatalf("failed setting read deadline: %v", err)
+		}
+
+		_, got, err := conn.ReadMessage()
+		if err != nil {
+			t.Fatalf("failed reading broadcast message: %v", err)
+		}
+
+		if string(got) != string(want) {
+			t.Fatalf("unexpected broadcast payload: got %s want %s", got, want)
+		}
+	})
 }
 
 type StubDeviceStore struct {
@@ -364,4 +335,26 @@ func getDeviceFromResponse(t testing.TB, body io.Reader) (node models.Node) {
 	}
 
 	return
+}
+
+func waitForClientCount(t testing.TB, hub *ws.Hub, want int, timeout time.Duration, topic string) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		hub.Mutex.Lock()
+		got := len(hub.WSClients[topic])
+		hub.Mutex.Unlock()
+
+		if got == want {
+			return
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	hub.Mutex.Lock()
+	got := len(hub.WSClients[topic])
+	hub.Mutex.Unlock()
+	t.Fatalf("timeout waiting for websocket clients count: got %d want %d", got, want)
 }

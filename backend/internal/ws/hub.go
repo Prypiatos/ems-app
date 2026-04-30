@@ -1,162 +1,60 @@
 package ws
 
 import (
-	"encoding/json"
-	"log/slog"
+	"context"
 	"sync"
 )
 
-// subscriptionKey identifies a unique (topic, room) pair.
-type subscriptionKey struct {
-	Topic string
-	Room  string
-}
-
-// Hub manages client connections, subscriptions, and message fan-out.
-// It is safe for concurrent use.
 type Hub struct {
-	mu          sync.RWMutex
-	clients     map[*Client]struct{}
-	subscribers map[subscriptionKey]map[*Client]struct{}
-	logger      *slog.Logger
+	Buffer    map[string]chan []byte
+	WSClients map[string]map[*Client]bool
+	Mutex     sync.Mutex
 }
 
-// NewHub creates a new Hub. Pass a structured logger; if nil, slog.Default() is used.
-func NewHub(logger *slog.Logger) *Hub {
-	if logger == nil {
-		logger = slog.Default()
+func NewHub(topics []string) *Hub {
+	wsmap := make(map[string]map[*Client]bool)
+	buffermap := make(map[string]chan []byte)
+	for _, topic := range topics {
+		wsmap[topic] = make(map[*Client]bool)
+		buffermap[topic] = make(chan []byte, 1)
 	}
+
 	return &Hub{
-		clients:     make(map[*Client]struct{}),
-		subscribers: make(map[subscriptionKey]map[*Client]struct{}),
-		logger:      logger,
+		Buffer:    buffermap,
+		WSClients: wsmap,
 	}
 }
 
-// Register adds a client to the hub. Called when a WebSocket connection is established.
-func (h *Hub) Register(c *Client) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.clients[c] = struct{}{}
-	h.logger.Info("client registered",
-		"client_id", c.ID,
-		"remote_addr", c.RemoteAddr,
-		"total_clients", len(h.clients),
-	)
+func (h *Hub) Register(client *Client, topic string) {
+	h.Mutex.Lock()
+	h.WSClients[topic][client] = true
+	h.Mutex.Unlock()
 }
 
-// Unregister removes a client and all its subscriptions.
-// Called when the WebSocket connection is closed.
-func (h *Hub) Unregister(c *Client) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	for key, subs := range h.subscribers {
-		delete(subs, c)
-		if len(subs) == 0 {
-			delete(h.subscribers, key)
-		}
-	}
-
-	delete(h.clients, c)
-	close(c.Send)
-
-	h.logger.Info("client unregistered",
-		"client_id", c.ID,
-		"total_clients", len(h.clients),
-	)
+func (h *Hub) Kickout(client *Client, topic string) {
+	h.Mutex.Lock()
+	h.WSClients[topic][client] = false
+	delete(h.WSClients[topic], client)
+	h.Mutex.Unlock()
 }
 
-// Subscribe adds a client to a (topic, room) channel.
-func (h *Hub) Subscribe(c *Client, topic, room string) {
-	key := subscriptionKey{Topic: topic, Room: room}
-
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	if h.subscribers[key] == nil {
-		h.subscribers[key] = make(map[*Client]struct{})
-	}
-	h.subscribers[key][c] = struct{}{}
-
-	h.logger.Info("client subscribed",
-		"client_id", c.ID,
-		"topic", topic,
-		"room", room,
-	)
-}
-
-// Unsubscribe removes a client from a (topic, room) channel.
-func (h *Hub) Unsubscribe(c *Client, topic, room string) {
-	key := subscriptionKey{Topic: topic, Room: room}
-
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	if subs, ok := h.subscribers[key]; ok {
-		delete(subs, c)
-		if len(subs) == 0 {
-			delete(h.subscribers, key)
-		}
-	}
-
-	h.logger.Info("client unsubscribed",
-		"client_id", c.ID,
-		"topic", topic,
-		"room", room,
-	)
-}
-
-// Publish sends a payload to all clients subscribed to (topic, room).
-// The data argument must be pre-serialized JSON. This is the method
-// external producers (e.g. a Kafka bridge) call.
-func (h *Hub) Publish(topic, room string, data json.RawMessage) {
-	msg := OutboundMessage{
-		Topic: topic,
-		Room:  room,
-		Data:  data,
-	}
-
-	key := subscriptionKey{Topic: topic, Room: room}
-
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	subs := h.subscribers[key]
-	for client := range subs {
-		payload, err := client.encodeOutbound(msg)
-		if err != nil {
-			h.logger.Error("failed to encode outbound message",
-				"error", err,
-				"client_id", client.ID,
-			)
-			continue
-		}
-
+func (h *Hub) Broadcast(ctx context.Context, topic string) {
+	for {
 		select {
-		case client.Send <- payload:
-		default:
-			// Client send buffer is full — drop this message (non-blocking).
-			h.logger.Warn("dropping message, client buffer full",
-				"client_id", client.ID,
-				"topic", topic,
-				"room", room,
-			)
+		case <-ctx.Done():
+			return
+		case msg := <-h.Buffer[topic]:
+			h.Mutex.Lock()
+			for client, clientIsAlive := range h.WSClients[topic] {
+				if clientIsAlive {
+					client.Buffer <- msg
+				} else {
+					client.Conn.Close()
+					h.WSClients[topic][client] = false
+					delete(h.WSClients[topic], client)
+				}
+			}
+			h.Mutex.Unlock()
 		}
 	}
-}
-
-// ClientCount returns the current number of connected clients.
-func (h *Hub) ClientCount() int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return len(h.clients)
-}
-
-// SubscriberCount returns the number of clients subscribed to a (topic, room).
-func (h *Hub) SubscriberCount(topic, room string) int {
-	key := subscriptionKey{Topic: topic, Room: room}
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return len(h.subscribers[key])
 }

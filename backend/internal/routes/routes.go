@@ -3,12 +3,12 @@ package routes
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/Prypiatos/ems-app/backend/internal/types"
+	"github.com/Prypiatos/ems-app/backend/internal/ws"
 	"github.com/Prypiatos/shared-models/models"
-	"github.com/gorilla/websocket"
 )
 
 type DeviceStore interface {
@@ -17,24 +17,16 @@ type DeviceStore interface {
 	GetNodeList() []models.Node
 }
 
-type StreamResult struct {
-	Data  []byte
-	Error error
-}
-type StreamClient interface {
-	Consume(ctx context.Context) <-chan StreamResult
-}
-
 type Server struct {
-	stream StreamClient
-	store  DeviceStore
+	store DeviceStore
+	wsHub *ws.Hub
 	http.Handler
 }
 
-func NewServer(store DeviceStore, stream StreamClient) *Server {
+func NewServer(store DeviceStore, wsHub *ws.Hub) *Server {
 	s := new(Server)
 	s.store = store
-	s.stream = stream
+	s.wsHub = wsHub
 	setupAPI(s)
 
 	return s
@@ -107,34 +99,27 @@ func (s *Server) GetAnomalies(w http.ResponseWriter, r *http.Request) {}
 
 func (s *Server) GetAlerts(w http.ResponseWriter, r *http.Request) {}
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin:     func(r *http.Request) bool { return true },
-}
-
 func (s *Server) GetLiveReadings(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := ws.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		slog.Error("", "error", err)
 		return
 	}
-	defer conn.Close()
 
-	results := s.stream.Consume(r.Context())
+	wsClient := ws.NewClient(conn)
+	s.wsHub.Register(wsClient, "energy.readings")
 
-	for res := range results {
-		if res.Error != nil {
-			log.Printf("Closing WS: Stream failure: %v", res.Error)
+	ctx, cancel := context.WithCancel(r.Context())
 
-			msg := websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Stream Unavailable")
-			conn.WriteMessage(websocket.CloseMessage, msg)
-			return
+	go wsClient.Write(ctx)
+
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			break
 		}
-
-		if err := conn.WriteMessage(websocket.TextMessage, res.Data); err != nil {
-			return
-		}
-
 	}
+	cancel()
 
+	s.wsHub.Kickout(wsClient, "energy.readings")
 }
