@@ -1,11 +1,13 @@
 BACKEND_DIR  := backend
 FRONTEND_DIR := frontend
 BINARY_NAME  := ems-backend
-POSTGRES_URL ?= postgres://ems:ems@localhost:5432/ems_metadata?sslmode=disable
+MIGRATIONS_DIR := ./db/postgres/migrations
+DB_URL         := "postgres://user:password@localhost:5432/ems_db?sslmode=disable"
 
 .PHONY: run run-backend run-frontend test test-backend test-frontend \
         build build-backend build-frontend lint lint-backend lint-frontend \
-        db-migrate-postgres db-seed-postgres clean help
+        clean help \
+		db-migrate-postgres db-migrate-down db-migration-create
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -48,20 +50,18 @@ lint-backend: ## Run golangci-lint (or go vet as fallback)
 lint-frontend: ## Run ESLint via npm
 	cd $(FRONTEND_DIR) && npm run lint
 
-db-migrate-postgres: ## Run PostgreSQL migrations (golang-migrate)
-	@if ! command -v migrate >/dev/null 2>&1; then \
-		echo "Error: 'migrate' (golang-migrate CLI) is required but not installed or not on PATH." >&2; \
-		exit 1; \
-	fi
-	migrate -path db/postgres/migrations -database "$(POSTGRES_URL)" up
+db-migrate-postgres: ## Run the migration script
+	@chmod +x ./db/postgres/migrate.sh
+	./db/postgres/migrate.sh
 
-db-seed-postgres: ## Seed PostgreSQL metadata data
-	@if ! command -v psql >/dev/null 2>&1; then \
-		echo "Error: 'psql' is required but not installed or not on PATH." >&2; \
-		exit 1; \
-	fi
-	psql "$(POSTGRES_URL)" -f db/postgres/seed.sql
+db-migrate-down: ## Roll back the last database migration
+	migrate -path $(MIGRATIONS_DIR) -database $(DB_URL) down 1
+
+db-migration-create: ## Create a new migration file (usage: make db-migration-create name=add_users)
+	@mkdir -p $(MIGRATIONS_DIR)
+	migrate create -ext sql -dir $(MIGRATIONS_DIR) -seq $(name)
 
 clean: ## Remove build artifacts
 	rm -rf $(BACKEND_DIR)/bin $(BACKEND_DIR)/tmp
 	rm -rf $(FRONTEND_DIR)/.next $(FRONTEND_DIR)/out
+
