@@ -1,7 +1,7 @@
 services:
   ems-backend:
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
@@ -13,27 +13,28 @@ services:
       - ./backend:/app
     environment:
       KAFKA_BROKER: broker:29092
-      POSTGRES_URL: postgres://ems:ems@postgres:5432/ems_metadata?sslmode=disable
+      POSTGRES_URL: postgres://user:password@db:5432/ems_db?sslmode=disable
     command: ["go", "run", "./cmd/backend"]
     ports:
       - 8080:8080
 
-  postgres:
-    image: postgres:16
+  db:
+    image: postgres:15-alpine
+    restart: always
     environment:
-      POSTGRES_DB: ems_metadata
-      POSTGRES_USER: ems
-      POSTGRES_PASSWORD: ems
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ems_db
     ports:
       - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ems -d ems_metadata"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U user -d ems_db"]
+      interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 15s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/postgres/seed.sql:/docker-entrypoint-initdb.d/seed.sql
 
   kong:
     image: kong:3.4.0
@@ -93,4 +94,4 @@ services:
     restart: "no"
 
 volumes:
-  postgres-data:
+  postgres_data:

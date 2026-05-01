@@ -1,0 +1,9 @@
+
+Copy
+
+DROP TABLE IF EXISTS user_preferences;
+DROP TABLE IF EXISTS alerts;
+DROP TABLE IF EXISTS alert_rules;
+DROP TABLE IF EXISTS devices;
+DROP TABLE IF EXISTS tariff_rates;
+DROP TABLE IF EXISTS divisions;
