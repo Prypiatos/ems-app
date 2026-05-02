@@ -21,13 +21,22 @@ export const useEnergyStore = create<EnergyStore>()(
       latestByDivision: {},
       addReading: (reading) =>
         set(
-          (state) => ({
-            readings: [...state.readings, reading],
-            latestByDivision: {
-              ...state.latestByDivision,
-              [reading.divisionId]: reading,
-            },
-          }),
+          (state) => {
+            const currentLatest = state.latestByDivision[reading.divisionId];
+            const shouldReplaceLatest =
+              !currentLatest ||
+              Date.parse(reading.timestamp) >= Date.parse(currentLatest.timestamp);
+
+            return {
+              readings: [...state.readings, reading],
+              latestByDivision: shouldReplaceLatest
+                ? {
+                    ...state.latestByDivision,
+                    [reading.divisionId]: reading,
+                  }
+                : state.latestByDivision,
+            };
+          },
           false,
           'energy/addReading'
         ),
