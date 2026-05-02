@@ -7,7 +7,7 @@ services:
     routes:
       - name: ems-ws
         paths:
-          - /api/ws
+          - /api/readings
         strip_path: true
         # No basic-auth here to allow browser WebSocket connections
         

@@ -6,16 +6,6 @@ TOPICS="energy.readings energy.anomalies energy.forecasts"
 PARTITIONS=1
 REPLICATION_FACTOR=1
 
-echo "=== Deleting previous topic ==="
-for TOPIC in $TOPICS; do
-  echo "Deleting topic: $TOPIC"
-  /opt/kafka/bin/kafka-topics.sh \
-    --bootstrap-server broker:29092 \
-    --delete \
-    --if-exists \
-    --topic "$TOPIC"
-done
-
 echo "=== Creating topics ==="
 for TOPIC in $TOPICS; do
   echo "Creating topic: $TOPIC"

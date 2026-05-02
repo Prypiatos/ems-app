@@ -16,7 +16,7 @@ func NewHub(topics []string) *Hub {
 	buffermap := make(map[string]chan []byte)
 	for _, topic := range topics {
 		wsmap[topic] = make(map[*Client]bool)
-		buffermap[topic] = make(chan []byte, 1)
+		buffermap[topic] = make(chan []byte, 256)
 	}
 
 	return &Hub{

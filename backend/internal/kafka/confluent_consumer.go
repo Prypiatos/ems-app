@@ -45,8 +45,10 @@ func (cc *ConfluentConsumer) Close() error {
 }
 
 func (cc *ConfluentConsumer) Consume(ctx context.Context) <-chan []byte {
-	out := make(chan []byte)
+	// Buffered channel prevents poll loop backpressure from stalling Kafka polling.
+	out := make(chan []byte, 256)
 	go func() {
+		defer close(out)
 		for {
 			select {
 			case <-ctx.Done():
@@ -62,7 +64,16 @@ func (cc *ConfluentConsumer) Consume(ctx context.Context) <-chan []byte {
 
 			switch e := ev.(type) {
 			case *ckafka.Message:
-				out <- e.Value
+				select {
+				case out <- e.Value:
+				default:
+					// Keep consumer healthy even if downstream is temporarily slow.
+					select {
+					case <-out:
+					default:
+					}
+					out <- e.Value
+				}
 				slog.Info("message consumed",
 					"topic", e.TopicPartition.Topic,
 					"partition", e.TopicPartition.Partition,

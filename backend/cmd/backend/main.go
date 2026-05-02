@@ -53,7 +53,8 @@ func main() {
 	}
 
 	for _, topic := range topics {
-		dataChan := topicChannelMap[topic]
+		topicName := topic
+		dataChan := topicChannelMap[topicName]
 
 		go func() {
 			for {
@@ -63,12 +64,9 @@ func main() {
 					return
 				case msg := <-dataChan:
 					select {
-					case wsHub.Buffer[topic] <- msg:
-					default:
-						log.Println("buffer full. dropping old message")
-						<-wsHub.Buffer[topic]
-						wsHub.Buffer[topic] <- msg
-
+					case wsHub.Buffer[topicName] <- msg:
+					case <-ctx.Done():
+						return
 					}
 				}
 			}
