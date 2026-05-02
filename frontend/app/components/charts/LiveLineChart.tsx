@@ -44,13 +44,16 @@ export const LiveLineChart = React.memo(function LiveLineChart({
   label = "Energy",
 }: LiveLineChartProps) {
   // Filter data within rolling window (keep only last windowSeconds worth of data)
+  // and sort chronologically so late-arriving older readings render correctly.
   const windowedData = useMemo(() => {
     if (data.length === 0) return [];
 
     const now = Date.now();
     const windowMs = windowSeconds * 1000;
 
-    return data.filter((point) => now - point.timestamp <= windowMs);
+    return data
+      .filter((point) => now - point.timestamp <= windowMs)
+      .sort((a, b) => a.timestamp - b.timestamp);
   }, [data, windowSeconds]);
 
   // Format data for Chart.js
