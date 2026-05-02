@@ -31,7 +31,7 @@ export default function ChartsDevPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="min-h-screen bg-app p-8">
       <div className="mx-auto max-w-7xl space-y-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-fg">Chart Components</h1>
