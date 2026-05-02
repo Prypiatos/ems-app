@@ -1,4 +1,8 @@
-import WebSocket from 'ws';
+let WebSocketImpl = globalThis.WebSocket;
+if (!WebSocketImpl) {
+  const wsModule = await import('ws');
+  WebSocketImpl = wsModule.default;
+}
 
 const url = process.env.WS_URL || 'ws://localhost:8000/api/readings';
 const expected = Number(process.env.EXPECTED || 3);
@@ -7,7 +11,7 @@ const timeoutMs = Number(process.env.TIMEOUT_MS || 15000);
 const latencies = [];
 const received = [];
 
-const ws = new WebSocket(url);
+const ws = new WebSocketImpl(url);
 
 const timeout = setTimeout(() => {
   console.error(JSON.stringify({ ok: false, reason: 'timeout', received: received.length, latencies }));

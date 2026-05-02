@@ -79,7 +79,7 @@ Result:
 ### 5) Socket realtime verification
 - Requested: Socket.IO namespace `/realtime/readings`, room `division:{divisionId}`, event `reading:update`.
 - Actual backend implementation: raw WebSocket endpoint `GET /readings` with topic hub `energy.readings`.
-- Kong route `/api/ws` currently strips to backend `/` and returns HTTP 200 (not websocket upgrade).
+- Earlier in this run, Kong route `/api/ws` stripped to backend `/` and returned HTTP 200 (not websocket upgrade). This was later corrected to `/api/readings`.
 - Authenticated websocket to `/api/readings` does connect, but no reading frames arrived during probe while consumer lag persisted.
 
 ### 6) Frontend chart update and latency

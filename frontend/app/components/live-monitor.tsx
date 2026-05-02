@@ -21,12 +21,13 @@ function toNumber(input: unknown): number | null {
 
 function resolveWsUrl() {
   if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? 'ws://localhost:8080/readings';
+    return process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? 'ws://localhost:8000/api/readings';
   }
 
   const envUrl = process.env.NEXT_PUBLIC_BACKEND_WS_URL;
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
   if (!envUrl) {
-    return `ws://${window.location.hostname}:8080/readings`;
+    return `${wsProtocol}://${window.location.hostname}:8000/api/readings`;
   }
 
   try {
@@ -153,7 +154,7 @@ export function LiveMonitor() {
           <select
             value={selectedNode}
             onChange={(e) => setSelectedNode(e.target.value)}
-            className="rounded-md border border-border-subtle bg-bg px-2 py-1 text-xs"
+            className="rounded-md border border-border-subtle bg-panel px-2 py-1 text-xs"
           >
             <option value="all">All</option>
             {availableNodes.map((node) => (
@@ -172,7 +173,7 @@ export function LiveMonitor() {
         </div>
       </div>
 
-      <div className="mb-5 rounded-xl border border-border-subtle bg-bg/40 p-4">
+      <div className="mb-5 rounded-xl border border-border-subtle bg-panel/60 p-4">
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Current Reading</p>
@@ -195,26 +196,26 @@ export function LiveMonitor() {
       </div>
 
       <div className="mb-5 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-        <div className="rounded-lg border border-border-subtle bg-bg/40 p-3">
+        <div className="rounded-lg border border-border-subtle bg-panel/60 p-3">
           <p className="text-muted uppercase tracking-wide">Node</p>
           <p className="mt-1 font-semibold">{latestNode}</p>
         </div>
-        <div className="rounded-lg border border-border-subtle bg-bg/40 p-3">
+        <div className="rounded-lg border border-border-subtle bg-panel/60 p-3">
           <p className="text-muted uppercase tracking-wide">Per Minute</p>
           <p className="mt-1 font-semibold">{readingsPerMinute}</p>
         </div>
-        <div className="rounded-lg border border-border-subtle bg-bg/40 p-3">
+        <div className="rounded-lg border border-border-subtle bg-panel/60 p-3">
           <p className="text-muted uppercase tracking-wide">Avg Window</p>
           <p className="mt-1 font-semibold">{rollingAvg === '-' ? '-' : `${rollingAvg} kWh`}</p>
         </div>
-        <div className="rounded-lg border border-border-subtle bg-bg/40 p-3">
+        <div className="rounded-lg border border-border-subtle bg-panel/60 p-3">
           <p className="text-muted uppercase tracking-wide">Last Update</p>
           <p className="mt-1 font-semibold">{latestAt}</p>
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <div className="rounded-xl border border-border-subtle bg-bg/40 p-3">
+        <div className="rounded-xl border border-border-subtle bg-panel/60 p-3">
           {filteredReadings.length === 0 ? (
             <div className="flex h-56 items-center justify-center rounded-lg border border-dashed border-border-subtle">
               <p className="text-xs text-muted italic">
@@ -232,7 +233,7 @@ export function LiveMonitor() {
           )}
         </div>
 
-        <div className="rounded-xl border border-border-subtle bg-bg/40 p-3">
+        <div className="rounded-xl border border-border-subtle bg-panel/60 p-3">
           <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Recent Events</p>
           {recentReadings.length === 0 ? (
             <p className="text-xs text-muted">No events yet.</p>
