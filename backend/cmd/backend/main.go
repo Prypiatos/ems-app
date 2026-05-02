@@ -9,13 +9,14 @@ import (
 	"os"
 
 	"github.com/Prypiatos/ems-app/backend/internal/bootstrap"
-	memorydb "github.com/Prypiatos/ems-app/backend/internal/db/memory"
-	postgresdb "github.com/Prypiatos/ems-app/backend/internal/db/postgres"
+	"github.com/Prypiatos/ems-app/backend/internal/db"
+	"github.com/Prypiatos/ems-app/backend/internal/influx"
 	"github.com/Prypiatos/ems-app/backend/internal/kafka"
+	"github.com/Prypiatos/ems-app/backend/internal/repository"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
+	"github.com/Prypiatos/ems-app/backend/internal/service"
 	"github.com/Prypiatos/ems-app/backend/internal/tools"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
 
@@ -30,24 +31,6 @@ func main() {
 	defer cancel()
 
 	_ = godotenv.Load()
-
-	postgresURL := os.Getenv("POSTGRES_URL")
-	if postgresURL == "" {
-		postgresURL = os.Getenv("DATABASE_URL")
-	}
-
-	var postgresPool *pgxpool.Pool
-	if postgresURL != "" {
-		pool, err := postgresdb.NewPool(ctx, postgresURL)
-		if err != nil {
-			slog.Warn("failed to initialize PostgreSQL; health endpoint will report degraded", "error", err)
-		} else {
-			postgresPool = pool
-			defer postgresPool.Close()
-		}
-	} else {
-		slog.Warn("POSTGRES_URL not set; health endpoint will report degraded")
-	}
 
 	topics := []string{"energy.readings", "energy.anomalies", "energy.forecasts"}
 
@@ -98,11 +81,56 @@ func main() {
 	}
 
 	deviceStore := bootstrap.NewDeviceStore()
-	defaultDB := memorydb.NewRepository()
-	repository := postgresdb.NewRepository(postgresPool)
-	server := routes.NewServer(deviceStore, wsHub)
-	server.SetDatabase(defaultDB)
-	server.SetPostgresHealthChecker(repository)
+
+	// --- PostgreSQL setup for divisions ---
+	pgConfig := db.PostgresConfig{
+		Host:     os.Getenv("POSTGRES_HOST"),
+		Port:     os.Getenv("POSTGRES_PORT"),
+		User:     os.Getenv("POSTGRES_USER"),
+		Password: os.Getenv("POSTGRES_PASSWORD"),
+		Database: os.Getenv("POSTGRES_DB"),
+		SSLMode:  os.Getenv("POSTGRES_SSLMODE"),
+	}
+
+	// Set defaults if not configured
+	if pgConfig.Host == "" {
+		pgConfig.Host = "localhost"
+	}
+	if pgConfig.Port == "" {
+		pgConfig.Port = "5432"
+	}
+	if pgConfig.User == "" {
+		pgConfig.User = "user"
+	}
+	if pgConfig.Password == "" {
+		pgConfig.Password = "password"
+	}
+	if pgConfig.Database == "" {
+		pgConfig.Database = "ems_db"
+	}
+	if pgConfig.SSLMode == "" {
+		pgConfig.SSLMode = "disable"
+	}
+
+	var divisionService *service.DivisionService
+
+	// Try to connect to PostgreSQL, but don't fail if unavailable
+	pgDB, err := db.NewPostgresDB(pgConfig)
+	if err != nil {
+		slog.Warn("PostgreSQL connection failed, division endpoints will be unavailable", "error", err)
+		divisionService = service.NewDivisionService(nil, influx.NewMockClient())
+	} else {
+		defer pgDB.Close()
+
+		// Initialize division repository and service
+		divisionRepo := repository.NewDivisionRepository(pgDB)
+		influxClient := influx.NewMockClient() // TODO: Replace with real InfluxDB client when available
+		divisionService = service.NewDivisionService(divisionRepo, influxClient)
+
+		slog.Info("Division service initialized with PostgreSQL backend")
+	}
+
+	server := routes.NewServer(deviceStore, wsHub, divisionService)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", server)
