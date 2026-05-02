@@ -24,6 +24,24 @@ describe('energyStore', () => {
     expect(state.latestByDivision.d1?.value).toBe(120);
   });
 
+  it('keeps the newest reading in latestByDivision when an older reading arrives later', () => {
+    useEnergyStore.getState().addReading({
+      divisionId: 'd1',
+      value: 120,
+      timestamp: '2026-05-02T12:00:00.000Z',
+    });
+    useEnergyStore.getState().addReading({
+      divisionId: 'd1',
+      value: 90,
+      timestamp: '2026-05-02T11:00:00.000Z',
+    });
+
+    const state = useEnergyStore.getState();
+    expect(state.readings).toHaveLength(2);
+    expect(state.latestByDivision.d1?.value).toBe(120);
+    expect(state.latestByDivision.d1?.timestamp).toBe('2026-05-02T12:00:00.000Z');
+  });
+
   it('clears readings and latestByDivision', () => {
     useEnergyStore.getState().addReading({
       divisionId: 'd1',
