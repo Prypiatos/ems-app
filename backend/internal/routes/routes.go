@@ -7,11 +7,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Prypiatos/ems-app/backend/internal/db"
+	"github.com/Prypiatos/ems-app/backend/internal/service"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
 	"github.com/Prypiatos/shared-models/models"
+	"github.com/google/uuid"
 )
+
+const requestTimeout = 10 * time.Second
 
 type DeviceStore interface {
 	GetDeviceHealth(node_id string) (models.HealthStatus, error)
@@ -22,19 +25,15 @@ type DeviceStore interface {
 type Server struct {
 	store           DeviceStore
 	wsHub           *ws.Hub
-	db              db.Repository
-	postgresChecker PostgresHealthChecker
+	divisionService *service.DivisionService
 	http.Handler
 }
 
-type PostgresHealthChecker interface {
-	Ping(ctx context.Context) error
-}
-
-func NewServer(store DeviceStore, wsHub *ws.Hub) *Server {
+func NewServer(store DeviceStore, wsHub *ws.Hub, divisionService *service.DivisionService) *Server {
 	s := new(Server)
 	s.store = store
 	s.wsHub = wsHub
+	s.divisionService = divisionService
 	setupAPI(s)
 
 	return s
@@ -55,15 +54,11 @@ func setupAPI(s *Server) {
 	router.HandleFunc("GET /alerts", s.GetAlerts)
 	router.HandleFunc("GET /readings", s.GetLiveReadings)
 
+	// Division endpoints
+	router.HandleFunc("GET /api/v1/divisions", s.GetDivisions)
+	router.HandleFunc("GET /api/v1/divisions/{id}/summary", s.GetDivisionSummary)
+
 	s.Handler = router
-}
-
-func (s *Server) SetPostgresHealthChecker(checker PostgresHealthChecker) {
-	s.postgresChecker = checker
-}
-
-func (s *Server) SetDatabase(repository db.Repository) {
-	s.db = repository
 }
 
 func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
@@ -79,27 +74,7 @@ func (s *Server) GetHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", types.JSONContentType)
 
 	response := map[string]any{
-		"status":   "ok",
-		"postgres": "up",
-	}
-
-	if s.postgresChecker == nil {
-		response["status"] = "degraded"
-		response["postgres"] = "unconfigured"
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(response)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-	defer cancel()
-
-	if err := s.postgresChecker.Ping(ctx); err != nil {
-		response["status"] = "degraded"
-		response["postgres"] = "down"
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(response)
-		return
+		"status": "ok",
 	}
 
 	_ = json.NewEncoder(w).Encode(response)
@@ -169,4 +144,53 @@ func (s *Server) GetLiveReadings(w http.ResponseWriter, r *http.Request) {
 	cancel()
 
 	s.wsHub.Kickout(wsClient, "energy.readings")
+}
+
+// GetDivisions returns the hierarchical division tree.
+func (s *Server) GetDivisions(w http.ResponseWriter, r *http.Request) {
+	if s.divisionService == nil {
+		http.Error(w, "division service not configured", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	divisions, err := s.divisionService.GetHierarchy(ctx)
+	if err != nil {
+		slog.Error("failed to fetch divisions", "error", err)
+		http.Error(w, "failed to fetch divisions", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"data": divisions})
+}
+
+// GetDivisionSummary returns a division with realtime metrics.
+func (s *Server) GetDivisionSummary(w http.ResponseWriter, r *http.Request) {
+	if s.divisionService == nil {
+		http.Error(w, "division service not configured", http.StatusInternalServerError)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	divisionID, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "invalid division id", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	summary, err := s.divisionService.GetDivisionSummary(ctx, divisionID)
+	if err != nil {
+		slog.Error("failed to fetch division summary", "error", err, "division_id", divisionID)
+		http.Error(w, "failed to fetch division summary", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summary)
 }
