@@ -2,11 +2,19 @@
 
 import axios from 'axios';
 
+function resolveApiBaseUrl() {
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL;
+  }
+  // Use same-origin path and let Next.js rewrite proxy to Kong.
+  return '/api';
+}
+
 /**
  * Centralized API client for all backend communication via Kong Gateway.
  */
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api',
+  baseURL: resolveApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
