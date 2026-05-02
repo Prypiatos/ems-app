@@ -2,12 +2,16 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
 export type AlertStatus = 'new' | 'acknowledged' | 'resolved';
+export type AlertSeverity = 'critical' | 'warning' | 'info';
 
 export interface AlertItem {
   id: string;
+  node_id: string;
+  type: string;
+  severity: AlertSeverity;
+  timestamp: number;
   message: string;
   status: AlertStatus;
-  createdAt: string;
 }
 
 interface AlertStore {

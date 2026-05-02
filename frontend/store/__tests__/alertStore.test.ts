@@ -15,8 +15,11 @@ describe('alertStore', () => {
   it('adds new alerts and updates unreadCount', () => {
     useAlertStore.getState().addAlert({
       id: 'a1',
+      node_id: 'n-01',
+      type: 'high_usage',
+      severity: 'warning',
+      timestamp: 1710000000,
       message: 'High usage',
-      createdAt: '2026-05-02T12:00:00.000Z',
     });
 
     const state = useAlertStore.getState();
@@ -28,8 +31,11 @@ describe('alertStore', () => {
   it('acknowledges alert and decreases unreadCount', () => {
     useAlertStore.getState().addAlert({
       id: 'a1',
+      node_id: 'n-01',
+      type: 'high_usage',
+      severity: 'warning',
+      timestamp: 1710000000,
       message: 'High usage',
-      createdAt: '2026-05-02T12:00:00.000Z',
     });
 
     useAlertStore.getState().acknowledge('a1');
@@ -42,8 +48,11 @@ describe('alertStore', () => {
   it('resolves alert and decreases unreadCount when needed', () => {
     useAlertStore.getState().addAlert({
       id: 'a1',
+      node_id: 'n-01',
+      type: 'high_usage',
+      severity: 'warning',
+      timestamp: 1710000000,
       message: 'High usage',
-      createdAt: '2026-05-02T12:00:00.000Z',
     });
 
     useAlertStore.getState().resolve('a1');

@@ -9,7 +9,7 @@ export interface ForecastPoint {
 interface ForecastStore {
   forecasts: Record<string, ForecastPoint[]>;
   setForecast: (divisionId: string, points: ForecastPoint[]) => void;
-  clearForecast: () => void;
+  clearAllForecasts: () => void;
 }
 
 export const useForecastStore = create<ForecastStore>()(
@@ -27,13 +27,13 @@ export const useForecastStore = create<ForecastStore>()(
           false,
           'forecast/setForecast'
         ),
-      clearForecast: () =>
+      clearAllForecasts: () =>
         set(
           {
             forecasts: {},
           },
           false,
-          'forecast/clearForecast'
+          'forecast/clearAllForecasts'
         ),
     }),
     {

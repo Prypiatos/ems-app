@@ -24,7 +24,7 @@ describe('forecastStore', () => {
       { timestamp: '2026-05-02T12:00:00.000Z', value: 100 },
     ]);
 
-    useForecastStore.getState().clearForecast();
+    useForecastStore.getState().clearAllForecasts();
 
     expect(useForecastStore.getState().forecasts).toEqual({});
   });
