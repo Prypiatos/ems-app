@@ -28,7 +28,6 @@ func (r *DivisionRepository) GetHierarchy(ctx context.Context) ([]models.Divisio
 			SELECT id, name, parent_id, floor, building, created_at
 			FROM divisions
 			WHERE parent_id IS NULL
-			ORDER BY name
 			
 			UNION ALL
 			
@@ -36,7 +35,6 @@ func (r *DivisionRepository) GetHierarchy(ctx context.Context) ([]models.Divisio
 			SELECT d.id, d.name, d.parent_id, d.floor, d.building, d.created_at
 			FROM divisions d
 			INNER JOIN division_hierarchy dh ON d.parent_id = dh.id
-			ORDER BY d.name
 		)
 		SELECT id, name, parent_id, floor, building, created_at
 		FROM division_hierarchy
