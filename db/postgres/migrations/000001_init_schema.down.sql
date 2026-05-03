@@ -1,6 +1,3 @@
-
-Copy
-
 DROP TABLE IF EXISTS user_preferences;
 DROP TABLE IF EXISTS alerts;
 DROP TABLE IF EXISTS alert_rules;

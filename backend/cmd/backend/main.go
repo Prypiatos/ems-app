@@ -118,7 +118,7 @@ func main() {
 	pgDB, err := db.NewPostgresDB(pgConfig)
 	if err != nil {
 		slog.Warn("PostgreSQL connection failed, division endpoints will be unavailable", "error", err)
-		divisionService = service.NewDivisionService(nil, influx.NewMockClient())
+		divisionService = nil
 	} else {
 		defer pgDB.Close()
 

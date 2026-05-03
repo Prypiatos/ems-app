@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -39,8 +40,9 @@ func (s *DivisionService) GetHierarchy(ctx context.Context) ([]models.Division, 
 
 	s.cacheMu.RLock()
 	if time.Now().Before(s.cacheExpiry) && len(s.hierarchyCache) > 0 {
-		defer s.cacheMu.RUnlock()
-		return s.hierarchyCache, nil
+		cached := cloneDivisions(s.hierarchyCache)
+		s.cacheMu.RUnlock()
+		return cached, nil
 	}
 	s.cacheMu.RUnlock()
 
@@ -52,11 +54,12 @@ func (s *DivisionService) GetHierarchy(ctx context.Context) ([]models.Division, 
 
 	// Update cache
 	s.cacheMu.Lock()
-	s.hierarchyCache = divisions
+	s.hierarchyCache = cloneDivisions(divisions)
 	s.cacheExpiry = time.Now().Add(s.cacheTTL)
+	cached := cloneDivisions(s.hierarchyCache)
 	s.cacheMu.Unlock()
 
-	return divisions, nil
+	return cached, nil
 }
 
 // GetDivisionSummary fetches a division and combines it with realtime metrics.
@@ -94,7 +97,7 @@ func (s *DivisionService) GetDivisionSummary(ctx context.Context, divisionID uui
 	kwh24h, err := s.influxClient.GetKWh24h(ctx, divisionIDStr)
 	if err != nil {
 		// Log but don't fail - use 0 as fallback
-		fmt.Printf("Warning: failed to fetch kWh for division %s: %v\n", divisionIDStr, err)
+		slog.Warn("failed to fetch kWh for division", "division_id", divisionIDStr, "error", err)
 		kwh24h = 0
 	}
 
@@ -121,4 +124,22 @@ func (s *DivisionService) GetDivisionSummary(ctx context.Context, divisionID uui
 	}
 
 	return summary, nil
+}
+
+func cloneDivisions(divisions []models.Division) []models.Division {
+	if len(divisions) == 0 {
+		return []models.Division{}
+	}
+
+	copied := make([]models.Division, len(divisions))
+	for i, div := range divisions {
+		copied[i] = div
+		if len(div.Children) > 0 {
+			copied[i].Children = cloneDivisions(div.Children)
+		} else {
+			copied[i].Children = []models.Division{}
+		}
+	}
+
+	return copied
 }
