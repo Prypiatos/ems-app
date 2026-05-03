@@ -2,15 +2,18 @@ _format_version: "3.0"
 _transform: true
 
 services:
-  - name: ems-backend
-    url: http://ems-backend:8080
+  - name: ems-backend-ws
+    url: http://ems-backend:8080/readings
     routes:
       - name: ems-ws
         paths:
-          - /api/ws
+          - /api/readings
         strip_path: true
         # No basic-auth here to allow browser WebSocket connections
-        
+
+  - name: ems-backend
+    url: http://ems-backend:8080
+    routes:
       - name: ems-api
         paths:
           - /api
