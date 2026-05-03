@@ -63,9 +63,9 @@ CREATE TABLE user_preferences (
 CREATE TABLE tariff_rates (
     id UUID PRIMARY KEY,
     name VARCHAR NOT NULL,
-    peak_rate FLOAT8 NOT NULL,
-    off_peak_rate FLOAT8 NOT NULL,
-    weekend_rate FLOAT8 NOT NULL,
+    peak_rate NUMERIC(12,4) NOT NULL,
+    off_peak_rate NUMERIC(12,4) NOT NULL,
+    weekend_rate NUMERIC(12,4) NOT NULL,
     peak_hours_start TIME NOT NULL,
     peak_hours_end TIME NOT NULL,
     currency VARCHAR NOT NULL DEFAULT 'USD',

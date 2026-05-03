@@ -91,9 +91,13 @@ make db-migrate-postgres
 make db-seed-postgres
 ```
 
-`POSTGRES_URL` defaults to `postgres://ems:ems@localhost:5432/ems_metadata?sslmode=disable`.
+`POSTGRES_URL` must be set for the backend runtime.
+
+Use the appropriate connection string for your environment:
+- Running the backend from the host machine: `postgres://ems:ems@localhost:5432/ems_metadata?sslmode=disable`
+- Running inside Docker Compose/networked containers: `postgres://ems:ems@postgres:5432/ems_metadata?sslmode=disable`
 
 ## Notes
-- Current data is in-memory seed data for development/testing.
-- Future work will plug in database integration and Kafka/MQTT brokers as needed.
+- The backend includes a PostgreSQL metadata database; local development may still use seeded data for testing workflows.
+- Future work includes expanding Kafka/MQTT broker integration and continuing to evolve data flows as needed.
 - API endpoints and data models are subject to change as the project evolves.
