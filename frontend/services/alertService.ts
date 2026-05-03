@@ -8,7 +8,7 @@ export const alertService = {
    * Fetches all active system alerts.
    */
   async getAlerts() {
-    const response = await api.get('/alerts');
+    const response = await api.get('/v1/alerts');
     return response.data;
   },
 
@@ -16,7 +16,7 @@ export const alertService = {
    * Fetches detected energy anomalies.
    */
   async getAnomalies() {
-    const response = await api.get('/anomalies');
+    const response = await api.get('/v1/anomalies');
     return response.data;
   }
 };

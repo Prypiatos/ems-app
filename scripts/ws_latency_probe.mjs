@@ -4,7 +4,7 @@ if (!WebSocketImpl) {
   WebSocketImpl = wsModule.default;
 }
 
-const url = process.env.WS_URL || 'ws://localhost:8000/api/readings';
+const url = process.env.WS_URL || 'ws://localhost:8000/api/v1/readings';
 const expected = Number(process.env.EXPECTED || 3);
 const timeoutMs = Number(process.env.TIMEOUT_MS || 15000);
 

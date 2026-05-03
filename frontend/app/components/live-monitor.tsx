@@ -21,13 +21,13 @@ function toNumber(input: unknown): number | null {
 
 function resolveWsUrl() {
   if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? 'ws://localhost:8000/api/readings';
+    return process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? 'ws://localhost:8000/api/v1/readings';
   }
 
   const envUrl = process.env.NEXT_PUBLIC_BACKEND_WS_URL;
   const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
   if (!envUrl) {
-    return `${wsProtocol}://${window.location.hostname}:8000/api/readings`;
+    return `${wsProtocol}://${window.location.hostname}:8000/api/v1/readings`;
   }
 
   try {
@@ -164,9 +164,8 @@ export function LiveMonitor() {
             ))}
           </select>
           <div
-            className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${
-              connected ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-600'
-            }`}
+            className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${connected ? 'bg-green-500/15 text-green-600' : 'bg-red-500/15 text-red-600'
+              }`}
           >
             {connected ? 'Connected' : 'Disconnected'}
           </div>
@@ -185,9 +184,8 @@ export function LiveMonitor() {
           <div className="text-right">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted">Delta</p>
             <p
-              className={`mt-1 text-sm font-semibold ${
-                delta == null ? 'text-muted' : delta >= 0 ? 'text-emerald-600' : 'text-orange-600'
-              }`}
+              className={`mt-1 text-sm font-semibold ${delta == null ? 'text-muted' : delta >= 0 ? 'text-emerald-600' : 'text-orange-600'
+                }`}
             >
               {delta == null ? '-' : `${delta >= 0 ? '+' : ''}${delta.toFixed(2)} kWh`}
             </p>

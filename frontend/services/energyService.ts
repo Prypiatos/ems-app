@@ -8,7 +8,7 @@ export const energyService = {
    * Fetches aggregate energy consumption data.
    */
   async getAggregateData() {
-    const response = await api.get('/energy/aggregate');
+    const response = await api.get('/v1/energy/aggregate');
     return response.data;
   },
 
@@ -16,7 +16,7 @@ export const energyService = {
    * Fetches energy usage predictions/forecasts.
    */
   async getPredictions() {
-    const response = await api.get('/prediction');
+    const response = await api.get('/v1/prediction');
     return response.data;
   }
 };

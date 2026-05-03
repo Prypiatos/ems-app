@@ -8,7 +8,7 @@ export const nodeService = {
    * Fetches all energy monitoring nodes from the gateway.
    */
   async getAllNodes() {
-    const response = await api.get('/nodes');
+    const response = await api.get('/v1/nodes');
     return response.data;
   },
 
@@ -16,7 +16,7 @@ export const nodeService = {
    * Fetches specific health status for a single node.
    */
   async getNodeHealth(id: string) {
-    const response = await api.get(`/health/${id}`);
+    const response = await api.get(`/v1/health/${id}`);
     return response.data;
   },
 
@@ -24,7 +24,7 @@ export const nodeService = {
    * Fetches full details for a specific node by ID.
    */
   async getNodeDetails(id: string) {
-    const response = await api.get(`/nodes/${id}`);
+    const response = await api.get(`/v1/nodes/${id}`);
     return response.data;
   }
 };

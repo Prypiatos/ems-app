@@ -27,8 +27,6 @@ export function createRealtimeEnergyConnection({
   let reconnectAttempt = 0;
   let stopped = false;
 
-  const room = `division:${divisionId}`;
-
   const clearReconnectTimer = () => {
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
@@ -41,6 +39,8 @@ export function createRealtimeEnergyConnection({
     const doubled = BACKOFF_STEPS_MS[BACKOFF_STEPS_MS.length - 1] * 2 ** (reconnectAttempt - 2);
     return Math.min(doubled, MAX_BACKOFF_MS);
   };
+
+  const room = `division:${divisionId}`;
 
   const connect = () => {
     if (stopped) return;
