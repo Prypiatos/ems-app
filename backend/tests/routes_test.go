@@ -62,10 +62,10 @@ func TestGetHealthByID(t *testing.T) {
 		status int
 		body   models.HealthStatus
 	}{
-		{"online node returns health payload", "/health/node_1", http.StatusOK, deviceStore.healthRecords["node_1"]},
-		{"degraded node returns health payload", "/health/node_2", http.StatusOK, deviceStore.healthRecords["node_2"]},
-		{"intended offline node returns health payload", "/health/node_3", http.StatusOK, deviceStore.healthRecords["node_3"]},
-		{"invalid node_id should return 404", "/health/node_unknown", http.StatusNotFound, models.HealthStatus{}},
+		{"online node returns health payload", "/api/v1/health/node_1", http.StatusOK, deviceStore.healthRecords["node_1"]},
+		{"degraded node returns health payload", "/api/v1/health/node_2", http.StatusOK, deviceStore.healthRecords["node_2"]},
+		{"intended offline node returns health payload", "/api/v1/health/node_3", http.StatusOK, deviceStore.healthRecords["node_3"]},
+		{"invalid node_id should return 404", "/api/v1/health/node_unknown", http.StatusNotFound, models.HealthStatus{}},
 	}
 
 	for _, test := range tests {
@@ -94,7 +94,7 @@ func TestGetHealthByID(t *testing.T) {
 func TestGetHealth(t *testing.T) {
 	t.Run("returns ok status", func(t *testing.T) {
 		server := routes.NewServer(&StubDeviceStore{}, nil, nil)
-		req, err := http.NewRequest(http.MethodGet, "/health", nil)
+		req, err := http.NewRequest(http.MethodGet, "/api/v1/health", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -129,7 +129,7 @@ func TestGetNodes(t *testing.T) {
 		deviceStore := &StubDeviceStore{healthRecords: nil, nodes: wantedNodes}
 		server := routes.NewServer(deviceStore, nil, nil)
 
-		req, err := http.NewRequest(http.MethodGet, "/nodes", nil)
+		req, err := http.NewRequest(http.MethodGet, "/api/v1/nodes", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -157,8 +157,8 @@ func TestGetNodeDetailsByID(t *testing.T) {
 		status int
 		body   models.Node
 	}{
-		{"valid node responds OK", "/nodes/node_1", http.StatusOK, deviceStore.db["node_1"]},
-		{"invalid node_id should return 404", "/nodes/node_foo", http.StatusNotFound, models.Node{}},
+		{"valid node responds OK", "/api/v1/nodes/node_1", http.StatusOK, deviceStore.db["node_1"]},
+		{"invalid node_id should return 404", "/api/v1/nodes/node_foo", http.StatusNotFound, models.Node{}},
 	}
 
 	for _, test := range tests {
@@ -195,7 +195,7 @@ func TestGetLiveReadings(t *testing.T) {
 		go hub.Broadcast(ctx, "energy.readings")
 		defer cancel()
 
-		wsURL := "ws" + ts.URL[len("http"):] + "/readings"
+		wsURL := "ws" + ts.URL[len("http"):] + "/api/v1/readings"
 		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 		if err != nil {
 			t.Fatalf("websocket dial failed: %v", err)
@@ -220,7 +220,7 @@ func TestGetLiveReadings(t *testing.T) {
 		go hub.Broadcast(ctx, "energy.readings")
 		defer cancel()
 
-		wsURL := "ws" + ts.URL[len("http"):] + "/readings"
+		wsURL := "ws" + ts.URL[len("http"):] + "/api/v1/readings"
 		conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 		if err != nil {
 			t.Fatalf("websocket dial failed: %v", err)

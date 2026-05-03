@@ -44,17 +44,15 @@ func setupAPI(s *Server) {
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /", s.Home)
-	router.HandleFunc("GET /health", s.GetHealth)
-	router.HandleFunc("GET /health/{id}", s.GetHealthByID)
-	router.HandleFunc("GET /nodes/{id}", s.GetNodeDetailsByID)
-	router.HandleFunc("GET /nodes", s.GetNodes)
-	router.HandleFunc("GET /energy/aggregate", s.GetAggregate)
-	router.HandleFunc("GET /prediction", s.GetPrediction)
-	router.HandleFunc("GET /anomalies", s.GetAnomalies)
-	router.HandleFunc("GET /alerts", s.GetAlerts)
-	router.HandleFunc("GET /readings", s.GetLiveReadings)
-
-	// Division endpoints
+	router.HandleFunc("GET /api/v1/health", s.GetHealth)
+	router.HandleFunc("GET /api/v1/health/{id}", s.GetHealthByID)
+	router.HandleFunc("GET /api/v1/nodes/{id}", s.GetNodeDetailsByID)
+	router.HandleFunc("GET /api/v1/nodes", s.GetNodes)
+	router.HandleFunc("GET /api/v1/energy/aggregate", s.GetAggregate)
+	router.HandleFunc("GET /api/v1/prediction", s.GetPrediction)
+	router.HandleFunc("GET /api/v1/anomalies", s.GetAnomalies)
+	router.HandleFunc("GET /api/v1/alerts", s.GetAlerts)
+	router.HandleFunc("GET /api/v1/readings", s.GetLiveReadings)
 	router.HandleFunc("GET /api/v1/divisions", s.GetDivisions)
 	router.HandleFunc("GET /api/v1/divisions/{id}/summary", s.GetDivisionSummary)
 
