@@ -14,6 +14,12 @@ services:
     environment:
       KAFKA_BROKER: broker:29092
       POSTGRES_URL: postgres://user:password@db:5432/ems_db?sslmode=disable
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ems_db
+      POSTGRES_SSLMODE: disable
     command: ["go", "run", "./cmd/backend"]
     ports:
       - 8080:8080

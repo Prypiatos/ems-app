@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -93,24 +92,8 @@ func TestGetHealthByID(t *testing.T) {
 }
 
 func TestGetHealth(t *testing.T) {
-	t.Run("returns degraded when postgres checker is not configured", func(t *testing.T) {
-		server := routes.NewServer(&StubDeviceStore{}, nil)
-		req, err := http.NewRequest(http.MethodGet, "/health", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		resp := httptest.NewRecorder()
-		server.ServeHTTP(resp, req)
-
-		assertStatusCode(t, resp.Code, http.StatusServiceUnavailable)
-		assertContentType(t, resp, types.JSONContentType)
-	})
-
-	t.Run("returns ok when postgres is reachable", func(t *testing.T) {
-		server := routes.NewServer(&StubDeviceStore{}, nil)
-		server.SetPostgresHealthChecker(&StubPostgresChecker{})
-
+	t.Run("returns ok status", func(t *testing.T) {
+		server := routes.NewServer(&StubDeviceStore{}, nil, nil)
 		req, err := http.NewRequest(http.MethodGet, "/health", nil)
 		if err != nil {
 			t.Fatal(err)
@@ -121,22 +104,15 @@ func TestGetHealth(t *testing.T) {
 
 		assertStatusCode(t, resp.Code, http.StatusOK)
 		assertContentType(t, resp, types.JSONContentType)
-	})
 
-	t.Run("returns degraded when postgres ping fails", func(t *testing.T) {
-		server := routes.NewServer(&StubDeviceStore{}, nil)
-		server.SetPostgresHealthChecker(&StubPostgresChecker{err: errors.New("postgres down")})
-
-		req, err := http.NewRequest(http.MethodGet, "/health", nil)
-		if err != nil {
-			t.Fatal(err)
+		// Verify response has status field
+		var respBody map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
 		}
-
-		resp := httptest.NewRecorder()
-		server.ServeHTTP(resp, req)
-
-		assertStatusCode(t, resp.Code, http.StatusServiceUnavailable)
-		assertContentType(t, resp, types.JSONContentType)
+		if status, ok := respBody["status"]; !ok || status != "ok" {
+			t.Fatalf("expected status: ok, got: %v", status)
+		}
 	})
 }
 
@@ -277,6 +253,8 @@ type StubDeviceStore struct {
 	nodes         []models.Node
 }
 
+// StubPostgresChecker is deprecated and no longer used
+// Postgres health checking has been moved to the division service initialization
 type StubPostgresChecker struct {
 	err error
 }
