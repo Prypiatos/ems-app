@@ -1,9 +1,12 @@
+BEGIN;
+
 INSERT INTO divisions (id, name, parent_id, floor, building, created_at) VALUES
 ('11111111-1111-1111-1111-111111111111', 'HQ', NULL, '1', 'Building-A', NOW()),
 ('11111111-1111-1111-1111-111111111112', 'Operations', '11111111-1111-1111-1111-111111111111', '2', 'Building-A', NOW()),
 ('11111111-1111-1111-1111-111111111113', 'Manufacturing', '11111111-1111-1111-1111-111111111111', '3', 'Building-B', NOW()),
 ('11111111-1111-1111-1111-111111111114', 'Logistics', '11111111-1111-1111-1111-111111111111', '1', 'Building-C', NOW()),
-('11111111-1111-1111-1111-111111111115', 'R&D', '11111111-1111-1111-1111-111111111111', '4', 'Building-A', NOW());
+('11111111-1111-1111-1111-111111111115', 'R&D', '11111111-1111-1111-1111-111111111111', '4', 'Building-A', NOW())
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO devices (id, name, division_id, protocol, status, last_seen_at, created_at) VALUES
 ('22222222-2222-2222-2222-222222222201', 'ops-meter-01', '11111111-1111-1111-1111-111111111112', 'modbus', 'online', NOW(), NOW()),
@@ -25,7 +28,8 @@ INSERT INTO devices (id, name, division_id, protocol, status, last_seen_at, crea
 ('22222222-2222-2222-2222-222222222217', 'rnd-meter-02', '11111111-1111-1111-1111-111111111115', 'modbus', 'online', NOW(), NOW()),
 ('22222222-2222-2222-2222-222222222218', 'rnd-meter-03', '11111111-1111-1111-1111-111111111115', 'mqtt', 'online', NOW(), NOW()),
 ('22222222-2222-2222-2222-222222222219', 'rnd-meter-04', '11111111-1111-1111-1111-111111111115', 'mqtt', 'online', NOW(), NOW()),
-('22222222-2222-2222-2222-222222222220', 'rnd-meter-05', '11111111-1111-1111-1111-111111111115', 'modbus', 'online', NOW(), NOW());
+('22222222-2222-2222-2222-222222222220', 'rnd-meter-05', '11111111-1111-1111-1111-111111111115', 'modbus', 'online', NOW(), NOW())
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO tariff_rates (
     id, name, peak_rate, off_peak_rate, weekend_rate, peak_hours_start, peak_hours_end, currency, effective_from, effective_to, is_active
@@ -41,4 +45,7 @@ INSERT INTO tariff_rates (
     CURRENT_DATE,
     NULL,
     TRUE
-);
+)
+ON CONFLICT (id) DO NOTHING;
+
+COMMIT;

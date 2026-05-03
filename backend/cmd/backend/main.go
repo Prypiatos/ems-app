@@ -15,6 +15,7 @@ import (
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 	"github.com/Prypiatos/ems-app/backend/internal/tools"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
 
@@ -35,12 +36,18 @@ func main() {
 		postgresURL = os.Getenv("DATABASE_URL")
 	}
 
-	postgresPool, err := postgresdb.NewPool(ctx, postgresURL)
-	if err != nil {
-		slog.Error("failed to initialize PostgreSQL", "error", err)
-		return
+	var postgresPool *pgxpool.Pool
+	if postgresURL != "" {
+		pool, err := postgresdb.NewPool(ctx, postgresURL)
+		if err != nil {
+			slog.Warn("failed to initialize PostgreSQL; health endpoint will report degraded", "error", err)
+		} else {
+			postgresPool = pool
+			defer postgresPool.Close()
+		}
+	} else {
+		slog.Warn("POSTGRES_URL not set; health endpoint will report degraded")
 	}
-	defer postgresPool.Close()
 
 	topics := []string{"energy.readings", "energy.anomalies", "energy.forecasts"}
 

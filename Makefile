@@ -49,9 +49,17 @@ lint-frontend: ## Run ESLint via npm
 	cd $(FRONTEND_DIR) && npm run lint
 
 db-migrate-postgres: ## Run PostgreSQL migrations (golang-migrate)
+	@if ! command -v migrate >/dev/null 2>&1; then \
+		echo "Error: 'migrate' (golang-migrate CLI) is required but not installed or not on PATH." >&2; \
+		exit 1; \
+	fi
 	migrate -path db/postgres/migrations -database "$(POSTGRES_URL)" up
 
 db-seed-postgres: ## Seed PostgreSQL metadata data
+	@if ! command -v psql >/dev/null 2>&1; then \
+		echo "Error: 'psql' is required but not installed or not on PATH." >&2; \
+		exit 1; \
+	fi
 	psql "$(POSTGRES_URL)" -f db/postgres/seed.sql
 
 clean: ## Remove build artifacts
