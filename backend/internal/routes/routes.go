@@ -163,8 +163,8 @@ func (s *Server) GetDivisions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"data": divisions})
+	w.Header().Set("Content-Type", types.JSONContentType)
+	json.NewEncoder(w).Encode(divisions)
 }
 
 // GetDivisionSummary returns a division with realtime metrics.
@@ -191,6 +191,6 @@ func (s *Server) GetDivisionSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", types.JSONContentType)
 	json.NewEncoder(w).Encode(summary)
 }
