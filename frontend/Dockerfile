@@ -6,14 +6,14 @@ RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 COPY . .
 RUN npm run build
-RUN npm run export
 
 FROM node:20-alpine
 
 WORKDIR /app
 COPY --from=builder /app/out ./out
-COPY --from=builder /app/package.json ./
+
+RUN npm install -g serve
 
 EXPOSE 3000
 
-CMD ["npx", "serve", "-s", "out", "-l", "3000"]
+CMD ["serve", "-s", "out", "-l", "3000"]
