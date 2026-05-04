@@ -10,128 +10,82 @@ import (
 	"github.com/Prypiatos/ems-app/backend/internal/service"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
-	"github.com/Prypiatos/shared-models/models"
 	"github.com/google/uuid"
 )
 
-const requestTimeout = 10 * time.Second
-
-type DeviceStore interface {
-	GetDeviceHealth(node_id string) (models.HealthStatus, error)
-	GetDeviceByID(node_id string) (models.Node, error)
-	GetNodeList() []models.Node
-}
-
-type Server struct {
-	store           DeviceStore
-	wsHub           *ws.Hub
-	divisionService *service.DivisionService
+type Router struct {
+	wsHub               *ws.Hub
+	divisionService     *service.DivisionService
+	clientBufferSize    int
+	clientWriteDeadline time.Duration
+	clientReadDeadline  time.Duration
+	clientPingInterval  time.Duration
 	http.Handler
 }
 
-func NewServer(store DeviceStore, wsHub *ws.Hub, divisionService *service.DivisionService) *Server {
-	s := new(Server)
-	s.store = store
-	s.wsHub = wsHub
-	s.divisionService = divisionService
-	setupAPI(s)
+func NewRouter(wsHub *ws.Hub, divisionService *service.DivisionService, clientBufferSize int, clientWriteDeadline time.Duration, clientReadDeadline time.Duration, clientPingInterval time.Duration) *Router {
+	rt := new(Router)
+	rt.wsHub = wsHub
+	rt.divisionService = divisionService
+	rt.clientBufferSize = clientBufferSize
+	rt.clientWriteDeadline = clientWriteDeadline
+	rt.clientReadDeadline = clientReadDeadline
+	rt.clientPingInterval = clientPingInterval
+	setupRoutes(rt)
 
-	return s
+	return rt
 }
 
-func setupAPI(s *Server) {
-
+func setupRoutes(rt *Router) {
 	router := http.NewServeMux()
 
-	router.HandleFunc("GET /", s.Home)
-	router.HandleFunc("GET /api/v1/health", s.GetHealth)
-	router.HandleFunc("GET /api/v1/health/{id}", s.GetHealthByID)
-	router.HandleFunc("GET /api/v1/nodes/{id}", s.GetNodeDetailsByID)
-	router.HandleFunc("GET /api/v1/nodes", s.GetNodes)
-	router.HandleFunc("GET /api/v1/energy/aggregate", s.GetAggregate)
-	router.HandleFunc("GET /api/v1/prediction", s.GetPrediction)
-	router.HandleFunc("GET /api/v1/anomalies", s.GetAnomalies)
-	router.HandleFunc("GET /api/v1/alerts", s.GetAlerts)
-	router.HandleFunc("GET /api/v1/readings", s.GetLiveReadings)
-	router.HandleFunc("GET /api/v1/divisions", s.GetDivisions)
-	router.HandleFunc("GET /api/v1/divisions/{id}/summary", s.GetDivisionSummary)
+	router.HandleFunc("GET /", rt.defaultHandler)
+	router.HandleFunc("GET /api/v1/health", rt.getHealth)
+	router.HandleFunc("GET /api/v1/readings", rt.getLiveReadings)
+	router.HandleFunc("GET /api/v1/divisions", rt.getDivisions)
+	router.HandleFunc("GET /api/v1/divisions/{id}/summary", rt.getDivisionSummary)
 
-	s.Handler = router
+	rt.Handler = router
 }
 
-func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
+func (rt *Router) defaultHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
 	}
 
-	w.Write([]byte("Welcome to Energy Management System"))
+	w.Write([]byte("Welcome!!!"))
 }
 
-func (s *Server) GetHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", types.JSONContentType)
+func (rt *Router) getHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	response := map[string]any{
 		"status": "ok",
 	}
 
-	_ = json.NewEncoder(w).Encode(response)
-}
-
-func (s *Server) GetHealthByID(w http.ResponseWriter, r *http.Request) {
-	node_id := r.PathValue("id")
-
-	healthStatus, err := s.store.GetDeviceHealth(node_id)
-
-	if err == types.ErrNodeNotFound {
-		http.NotFound(w, r)
-		return
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		slog.Error("json encoding failed", slog.String("error", err.Error()))
 	}
-
-	w.Header().Set("Content-Type", types.JSONContentType)
-	json.NewEncoder(w).Encode(healthStatus)
 }
 
-func (s *Server) GetNodes(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", types.JSONContentType)
-	json.NewEncoder(w).Encode(s.store.GetNodeList())
-}
-
-func (s *Server) GetNodeDetailsByID(w http.ResponseWriter, r *http.Request) {
-	node_id := r.PathValue("id")
-
-	device, err := s.store.GetDeviceByID(node_id)
-
-	if err == types.ErrNodeNotFound {
-		http.NotFound(w, r)
-		return
-	}
-
-	w.Header().Set("Content-Type", types.JSONContentType)
-	json.NewEncoder(w).Encode(device)
-}
-
-func (s *Server) GetAggregate(w http.ResponseWriter, r *http.Request) {}
-
-func (s *Server) GetPrediction(w http.ResponseWriter, r *http.Request) {}
-
-func (s *Server) GetAnomalies(w http.ResponseWriter, r *http.Request) {}
-
-func (s *Server) GetAlerts(w http.ResponseWriter, r *http.Request) {}
-
-func (s *Server) GetLiveReadings(w http.ResponseWriter, r *http.Request) {
+// consumes kafka topic and send data to websocket connection
+func (rt *Router) getLiveReadings(w http.ResponseWriter, r *http.Request) {
 	conn, err := ws.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("", "error", err)
 		return
 	}
 
-	wsClient := ws.NewClient(conn)
-	s.wsHub.Register(wsClient, "energy.readings")
+	wsClient := ws.NewClient(conn, rt.clientBufferSize, rt.clientWriteDeadline, rt.clientReadDeadline, rt.clientPingInterval)
+	rt.wsHub.Register(wsClient, "energy.readings")
 
 	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	defer rt.wsHub.Kickout(wsClient, "energy.readings")
 
 	go wsClient.Write(ctx)
+	go wsClient.PingLoop(ctx)
 
 	for {
 		_, _, err := conn.ReadMessage()
@@ -139,14 +93,13 @@ func (s *Server) GetLiveReadings(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	cancel()
-
-	s.wsHub.Kickout(wsClient, "energy.readings")
 }
 
+const requestTimeout = 10 * time.Second
+
 // GetDivisions returns the hierarchical division tree.
-func (s *Server) GetDivisions(w http.ResponseWriter, r *http.Request) {
-	if s.divisionService == nil {
+func (rt *Router) getDivisions(w http.ResponseWriter, r *http.Request) {
+	if rt.divisionService == nil {
 		http.Error(w, "division service not configured", http.StatusInternalServerError)
 		return
 	}
@@ -154,7 +107,7 @@ func (s *Server) GetDivisions(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
-	divisions, err := s.divisionService.GetHierarchy(ctx)
+	divisions, err := rt.divisionService.GetHierarchy(ctx)
 	if err != nil {
 		slog.Error("failed to fetch divisions", "error", err)
 		http.Error(w, "failed to fetch divisions", http.StatusInternalServerError)
@@ -166,8 +119,8 @@ func (s *Server) GetDivisions(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetDivisionSummary returns a division with realtime metrics.
-func (s *Server) GetDivisionSummary(w http.ResponseWriter, r *http.Request) {
-	if s.divisionService == nil {
+func (rt *Router) getDivisionSummary(w http.ResponseWriter, r *http.Request) {
+	if rt.divisionService == nil {
 		http.Error(w, "division service not configured", http.StatusInternalServerError)
 		return
 	}
@@ -182,7 +135,7 @@ func (s *Server) GetDivisionSummary(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
-	summary, err := s.divisionService.GetDivisionSummary(ctx, divisionID)
+	summary, err := rt.divisionService.GetDivisionSummary(ctx, divisionID)
 	if err != nil {
 		slog.Error("failed to fetch division summary", "error", err, "division_id", divisionID)
 		http.Error(w, "failed to fetch division summary", http.StatusInternalServerError)

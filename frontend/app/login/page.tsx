@@ -21,7 +21,7 @@ export default function LoginPage() {
       const authHeader = btoa(`${username}:${password}`);
 
       // Test the credentials by making a small request to Kong
-      await api.get('/v1/nodes', {
+      await api.get('/api/v1/nodes', {
         headers: {
           'Authorization': `Basic ${authHeader}`
         }
