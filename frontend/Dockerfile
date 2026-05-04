@@ -1,37 +1,19 @@
-FROM node:20-alpine AS base
-RUN npm install -g pnpm
+FROM node:20-alpine AS builder
 
-FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* package-lock.json* ./
-# Install ALL dependencies (including dev)
-RUN if [ -f pnpm-lock.yaml ]; then pnpm install; \
-    else npm install; \
-    fi
+COPY package.json pnpm-lock.yaml* ./
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
-FROM base AS development
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-ENV NODE_ENV=development
-ENV PORT=3000
-EXPOSE 3000
-CMD ["npm", "run", "dev"]
-
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
+RUN npm run export
 
-FROM base AS runner
+FROM node:20-alpine
+
 WORKDIR /app
-ENV NODE_ENV=production
-ENV PORT=3000
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
-# Install only production dependencies
-RUN npm install --omit=dev
+COPY --from=builder /app/out ./out
+COPY --from=builder /app/package.json ./
+
 EXPOSE 3000
-CMD ["npm", "run", "start"]
+
+CMD ["npx", "serve", "-s", "out", "-l", "3000"]
