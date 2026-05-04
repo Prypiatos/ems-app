@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { RealtimeDashboard } from './components/realtime-dashboard';
 
 export default function Page() {
-  redirect("/dashboard");
+  return <RealtimeDashboard />;
 }
