@@ -1,18 +1,20 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	skafka "github.com/segmentio/kafka-go"
 )
 
 type EnergyReading struct {
@@ -20,6 +22,7 @@ type EnergyReading struct {
 	DeviceID    string   `json:"device_id"`
 	DivisionID  string   `json:"division_id"`
 	Timestamp   int64    `json:"timestamp"` // unix millis
+	TsMs        int64    `json:"ts_ms"`
 	EnergyKWh   float64  `json:"energy_kwh"`
 	VoltageV    *float64 `json:"voltage_v,omitempty"`
 	CurrentA    *float64 `json:"current_a,omitempty"`
@@ -35,12 +38,14 @@ func RandomEnergyReading() EnergyReading {
 	v := randomFloat(220, 240)
 	c := randomFloat(5, 100)
 	pf := randomFloat(0.8, 1.0)
+	now := time.Now().UnixMilli()
 
 	return EnergyReading{
 		ReadingID:   uuid.New().String(),
 		DeviceID:    fmt.Sprintf("DEV-%03d", rand.Intn(10)+1),
 		DivisionID:  []string{"DIV-ENGINEERING", "DIV-OPERATIONS", "DIV-FINANCE"}[rand.Intn(3)],
-		Timestamp:   time.Now().UnixMilli(),
+		Timestamp:   now,
+		TsMs:        now,
 		EnergyKWh:   randomFloat(0.5, 20.0),
 		VoltageV:    &v,
 		CurrentA:    &c,
@@ -67,35 +72,20 @@ func main() {
 		topic = "energy.readings"
 	}
 
-	p, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": bootstrapServers,
-		"client.id":         "go-mock-producer",
-	})
-	if err != nil {
-		log.Fatalf("Failed to create producer: %s\n", err)
+	brokers := strings.Split(bootstrapServers, ",")
+	writer := &skafka.Writer{
+		Addr:     skafka.TCP(brokers...),
+		Topic:    topic,
+		Balancer: &skafka.LeastBytes{},
 	}
-	defer p.Close()
+	defer func() {
+		if err := writer.Close(); err != nil {
+			log.Printf("Failed to close writer: %v", err)
+		}
+	}()
 
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
-
-	deliveryChan := make(chan kafka.Event)
-
-	go func() {
-		for e := range deliveryChan {
-			switch ev := e.(type) {
-			case *kafka.Message:
-				if ev.TopicPartition.Error != nil {
-					fmt.Printf("Delivery failed: %v\n", ev.TopicPartition.Error)
-				} else {
-					fmt.Printf("Delivered to %s [%d] @ offset %v\n",
-						*ev.TopicPartition.Topic,
-						ev.TopicPartition.Partition,
-						ev.TopicPartition.Offset)
-				}
-			}
-		}
-	}()
 
 	run := true
 	for run {
@@ -112,23 +102,18 @@ func main() {
 				continue
 			}
 
-			err = p.Produce(&kafka.Message{
-				TopicPartition: kafka.TopicPartition{
-					Topic:     &topic,
-					Partition: kafka.PartitionAny,
-				},
+			err = writer.WriteMessages(context.Background(), skafka.Message{
 				Key:   []byte(payload.DeviceID),
 				Value: value,
-			}, deliveryChan)
-
+				Time:  time.Now(),
+			})
 			if err != nil {
 				fmt.Printf("Produce error: %v\n", err)
+			} else {
+				fmt.Printf("Delivered message for device %s\n", payload.DeviceID)
 			}
 
 			time.Sleep(1 * time.Second)
 		}
 	}
-
-	close(deliveryChan)
-	p.Flush(5000)
 }
