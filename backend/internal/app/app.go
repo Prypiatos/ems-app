@@ -2,10 +2,12 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
-
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/Prypiatos/ems-app/backend/internal/kafka"
 	"github.com/Prypiatos/ems-app/backend/internal/middleware"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
+	"github.com/Prypiatos/ems-app/backend/internal/stream"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
 )
 
@@ -30,22 +33,21 @@ func New(cfg config.Config) *Runtime {
 
 func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
 	wsHub := ws.NewHub(rt.cfg.Topics, rt.cfg.HubBufferSize)
-	router := routes.NewRouter(wsHub, nil, rt.cfg.ClientBufferSize, rt.cfg.ClientWriteDeadline, rt.cfg.ClientReadDeadline, rt.cfg.ClientPingInterval)
+	state := stream.NewState()
+	router := routes.NewRouter(wsHub, rt.cfg.TelemetryTopic, state, nil, rt.cfg.ClientBufferSize, rt.cfg.ClientWriteDeadline, rt.cfg.ClientReadDeadline, rt.cfg.ClientPingInterval)
 	mux := http.NewServeMux()
 	mux.Handle("/", router)
 
 	handler := middleware.Chain(
 		mux,
+		middleware.CORSMiddleware(),
 		middleware.RecoveryMiddleware(),
 		middleware.RequestIDMiddleware(),
 		middleware.LoggingMiddleware(),
 		middleware.WithAppContext(appCtx),
 	)
 
-	server := &http.Server{
-		Addr:    rt.cfg.ServerAddr,
-		Handler: handler,
-	}
+	server := &http.Server{Addr: rt.cfg.ServerAddr, Handler: handler}
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -58,7 +60,7 @@ func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
 
 	var wg sync.WaitGroup
 	var consumerMu sync.Mutex
-	consumers := make([]kafka.Consumer, 0, len(rt.cfg.TopicGroups))
+	consumers := make(map[string]kafka.Consumer)
 	defer func() {
 		for _, consumer := range consumers {
 			if err := consumer.Close(); err != nil {
@@ -69,41 +71,19 @@ func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
 
 	for _, topic := range rt.cfg.Topics {
 		topicName := topic
-		wg.Go(func() {
-			wsHub.Broadcast(appCtx, topicName)
-		})
+		wg.Go(func() { wsHub.Broadcast(appCtx, topicName) })
 	}
 
-	for topic, groupID := range rt.cfg.TopicGroups {
-		topicName := topic
-		groupName := groupID
+	if rt.cfg.EnableTopicDiscovery {
 		wg.Go(func() {
-			consumer, err := newKafkaConsumer(appCtx, topicName, groupName)
-			if err != nil {
-				if appCtx.Err() == nil {
-					slog.Error("failed to start consumer", "topic", topicName, "group", groupName, "error", err)
-				}
-				return
-			}
-
-			consumerMu.Lock()
-			consumers = append(consumers, consumer)
-			consumerMu.Unlock()
-
-			dataChan := consumer.Consume(appCtx)
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
 			for {
+				startDiscoveredConsumers(appCtx, &wg, &consumerMu, consumers, wsHub, state, rt.cfg)
 				select {
 				case <-appCtx.Done():
 					return
-				case msg, ok := <-dataChan:
-					if !ok {
-						return
-					}
-					if published := wsHub.Publish(appCtx, topicName, msg, rt.cfg.PublishTimeout); !published {
-						slog.Warn("dropping message from ingest",
-							"topic", topicName,
-						)
-					}
+				case <-ticker.C:
 				}
 			}
 		})
@@ -120,11 +100,144 @@ func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
 	slog.Info("stopping server")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("failed to shutdown server", "error", err)
 	}
-
 	wg.Wait()
 	return nil
+}
+
+func startDiscoveredConsumers(appCtx context.Context, wg *sync.WaitGroup, consumerMu *sync.Mutex, consumers map[string]kafka.Consumer, wsHub *ws.Hub, state *stream.State, cfg config.Config) {
+	topics, err := kafka.ListTopics(appCtx)
+	if err != nil {
+		if appCtx.Err() == nil {
+			slog.Warn("failed to list kafka topics", "error", err)
+		}
+		return
+	}
+
+	for _, topic := range topics {
+		if !isValidNodeTopic(topic) {
+			continue
+		}
+		if nodeID, ok := nodeIDFromTopic(topic); ok {
+			state.MarkNode(nodeID)
+		}
+
+		consumerMu.Lock()
+		_, exists := consumers[topic]
+		consumerMu.Unlock()
+		if exists {
+			continue
+		}
+
+		groupID := groupIDForTopic(topic)
+		consumer, err := newKafkaConsumer(appCtx, topic, groupID)
+		if err != nil {
+			if appCtx.Err() == nil {
+				slog.Error("failed to start consumer", "topic", topic, "group", groupID, "error", err)
+			}
+			continue
+		}
+
+		consumerMu.Lock()
+		consumers[topic] = consumer
+		consumerMu.Unlock()
+
+		wg.Go(func() {
+			dataChan := consumer.Consume(appCtx)
+			for {
+				select {
+				case <-appCtx.Done():
+					return
+				case record, ok := <-dataChan:
+					if !ok {
+						return
+					}
+					processRecord(appCtx, record, wsHub, state, cfg.PublishTimeout)
+				}
+			}
+		})
+		slog.Info("started dynamic consumer", "topic", topic, "group", groupID)
+	}
+}
+
+func processRecord(appCtx context.Context, record kafka.Record, wsHub *ws.Hub, state *stream.State, publishTimeout time.Duration) {
+	if !isValidNodeTopic(record.Topic) {
+		slog.Warn("dropping invalid topic", "topic", record.Topic)
+		return
+	}
+
+	nodeID, _ := nodeIDFromTopic(record.Topic)
+	state.MarkNode(nodeID)
+
+	switch {
+	case strings.HasSuffix(record.Topic, ".telemetry"):
+		if published := wsHub.Publish(appCtx, "telemetry", record.Value, publishTimeout); !published {
+			slog.Warn("dropping telemetry message from ingest", "topic", record.Topic)
+		}
+	case strings.HasSuffix(record.Topic, ".events"):
+		var event stream.Event
+		if err := json.Unmarshal(record.Value, &event); err != nil {
+			slog.Warn("dropping invalid event payload", "topic", record.Topic, "error", err)
+			return
+		}
+		if event.NodeID != nodeID {
+			slog.Warn("dropping event with mismatched node_id", "topic", record.Topic, "payload_node_id", event.NodeID)
+			return
+		}
+		state.AddEvent(event)
+	case strings.HasSuffix(record.Topic, ".health"):
+		var health stream.Health
+		if err := json.Unmarshal(record.Value, &health); err != nil {
+			slog.Warn("dropping invalid health payload", "topic", record.Topic, "error", err)
+			return
+		}
+		if health.NodeID != nodeID {
+			slog.Warn("dropping health with mismatched node_id", "topic", record.Topic, "payload_node_id", health.NodeID)
+			return
+		}
+		state.SetHealth(health)
+	}
+}
+
+func groupIDForTopic(topic string) string {
+	nodeID, _ := nodeIDFromTopic(topic)
+	switch {
+	case strings.HasSuffix(topic, ".telemetry"):
+		return fmt.Sprintf("energy-telemetry-%s", nodeID)
+	case strings.HasSuffix(topic, ".events"):
+		return fmt.Sprintf("energy-events-%s", nodeID)
+	case strings.HasSuffix(topic, ".health"):
+		return fmt.Sprintf("energy-health-%s", nodeID)
+	default:
+		return "energy-generic"
+	}
+}
+
+func isValidNodeTopic(topic string) bool {
+	nodeID, ok := nodeIDFromTopic(topic)
+	if !ok || nodeID == "" || len(nodeID) > 64 {
+		return false
+	}
+	for _, ch := range nodeID {
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_' {
+			continue
+		}
+		return false
+	}
+	return strings.HasSuffix(topic, ".telemetry") || strings.HasSuffix(topic, ".events") || strings.HasSuffix(topic, ".health")
+}
+
+func nodeIDFromTopic(topic string) (string, bool) {
+	const prefix = "energy.nodes."
+	if !strings.HasPrefix(topic, prefix) {
+		return "", false
+	}
+	rest := strings.TrimPrefix(topic, prefix)
+	parts := strings.Split(rest, ".")
+	if len(parts) != 2 {
+		return "", false
+	}
+	return parts[0], true
 }

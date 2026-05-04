@@ -8,36 +8,34 @@ import (
 )
 
 type Config struct {
-	ServerAddr          string
-	Topics              []string
-	TopicGroups         map[string]string
-	HubBufferSize       int
-	ClientBufferSize    int
-	PublishTimeout      time.Duration
-	ClientWriteDeadline time.Duration
-	ClientReadDeadline  time.Duration
-	ClientPingInterval  time.Duration
+	ServerAddr            string
+	Topics                []string
+	TopicGroups           map[string]string
+	TelemetryTopic        string
+	EnableTopicDiscovery  bool
+	HubBufferSize         int
+	ClientBufferSize      int
+	PublishTimeout        time.Duration
+	ClientWriteDeadline   time.Duration
+	ClientReadDeadline    time.Duration
+	ClientPingInterval    time.Duration
 }
 
 func Load() Config {
 	return Config{
 		ServerAddr: utils.Getenv("SERVER_ADDR", ":8080"),
 		Topics: []string{
-			"energy.readings",
-			"energy.anomalies",
-			"energy.forecasts",
+			"telemetry",
 		},
-		TopicGroups: map[string]string{
-			"energy.readings":  "energy-readings",
-			"energy.anomalies": "energy-anomalies",
-			"energy.forecasts": "energy-forecasts",
-		},
-		HubBufferSize:       getEnvInt("HUB_BUFFER_SIZE", 256),
-		ClientBufferSize:    getEnvInt("CLIENT_BUFFER_SIZE", 256),
-		PublishTimeout:      getEnvDurationMs("HUB_PUBLISH_TIMEOUT_MS", 25),
-		ClientWriteDeadline: getEnvDurationMs("CLIENT_WRITE_DEADLINE_MS", 500),
-		ClientReadDeadline:  getEnvDurationMs("CLIENT_READ_DEADLINE_MS", 60000),
-		ClientPingInterval:  getEnvDurationMs("CLIENT_PING_INTERVAL_MS", 30000),
+		TopicGroups:          map[string]string{},
+		TelemetryTopic:       "telemetry",
+		EnableTopicDiscovery: utils.Getenv("ENABLE_TOPIC_DISCOVERY", "true") != "false",
+		HubBufferSize:        getEnvInt("HUB_BUFFER_SIZE", 256),
+		ClientBufferSize:     getEnvInt("CLIENT_BUFFER_SIZE", 256),
+		PublishTimeout:       getEnvDurationMs("HUB_PUBLISH_TIMEOUT_MS", 25),
+		ClientWriteDeadline:  getEnvDurationMs("CLIENT_WRITE_DEADLINE_MS", 500),
+		ClientReadDeadline:   getEnvDurationMs("CLIENT_READ_DEADLINE_MS", 60000),
+		ClientPingInterval:   getEnvDurationMs("CLIENT_PING_INTERVAL_MS", 30000),
 	}
 }
 

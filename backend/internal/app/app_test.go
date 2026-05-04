@@ -13,23 +13,22 @@ import (
 
 func TestRuntimeRunStopsOnContextCancel(t *testing.T) {
 	rt := New(config.Config{
-		ServerAddr:          "127.0.0.1:0",
-		Topics:              nil,
-		TopicGroups:         map[string]string{},
-		HubBufferSize:       1,
-		ClientBufferSize:    1,
-		PublishTimeout:      time.Millisecond,
-		ClientWriteDeadline: time.Millisecond,
-		ClientReadDeadline:  time.Millisecond,
-		ClientPingInterval:  time.Millisecond,
+		ServerAddr:           "127.0.0.1:0",
+		Topics:               nil,
+		TopicGroups:          map[string]string{},
+		TelemetryTopic:       "energy.readings",
+		EnableTopicDiscovery: false,
+		HubBufferSize:        1,
+		ClientBufferSize:     1,
+		PublishTimeout:       time.Millisecond,
+		ClientWriteDeadline:  time.Millisecond,
+		ClientReadDeadline:   time.Millisecond,
+		ClientPingInterval:   time.Millisecond,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() {
-		done <- rt.Run(ctx, cancel)
-	}()
-
+	go func() { done <- rt.Run(ctx, cancel) }()
 	time.AfterFunc(50*time.Millisecond, cancel)
 
 	select {
@@ -48,20 +47,20 @@ func TestRuntimeRunServesHTTPWhileKafkaStartupBlocks(t *testing.T) {
 		t.Fatalf("listen: %v", err)
 	}
 	addr := listener.Addr().String()
-	if err := listener.Close(); err != nil {
-		t.Fatalf("close listener: %v", err)
-	}
+	_ = listener.Close()
 
 	rt := New(config.Config{
-		ServerAddr:          addr,
-		Topics:              []string{"energy.readings"},
-		TopicGroups:         map[string]string{"energy.readings": "energy-readings"},
-		HubBufferSize:       1,
-		ClientBufferSize:    1,
-		PublishTimeout:      time.Millisecond,
-		ClientWriteDeadline: time.Millisecond,
-		ClientReadDeadline:  time.Millisecond,
-		ClientPingInterval:  time.Millisecond,
+		ServerAddr:           addr,
+		Topics:               []string{"energy.readings"},
+		TopicGroups:          map[string]string{"energy.readings": "energy-readings"},
+		TelemetryTopic:       "energy.readings",
+		EnableTopicDiscovery: false,
+		HubBufferSize:        1,
+		ClientBufferSize:     1,
+		PublishTimeout:       time.Millisecond,
+		ClientWriteDeadline:  time.Millisecond,
+		ClientReadDeadline:   time.Millisecond,
+		ClientPingInterval:   time.Millisecond,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -72,14 +71,10 @@ func TestRuntimeRunServesHTTPWhileKafkaStartupBlocks(t *testing.T) {
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	t.Cleanup(func() {
-		newKafkaConsumer = originalFactory
-	})
+	t.Cleanup(func() { newKafkaConsumer = originalFactory })
 
 	done := make(chan error, 1)
-	go func() {
-		done <- rt.Run(ctx, cancel)
-	}()
+	go func() { done <- rt.Run(ctx, cancel) }()
 
 	client := &http.Client{Timeout: 100 * time.Millisecond}
 	healthURL := "http://" + addr + "/api/v1/health"
@@ -88,11 +83,7 @@ func TestRuntimeRunServesHTTPWhileKafkaStartupBlocks(t *testing.T) {
 	deadline := time.After(3 * time.Second)
 
 	for {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
-		if err != nil {
-			t.Fatalf("new request: %v", err)
-		}
-
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
 		resp, err := client.Do(req)
 		if err == nil {
 			resp.Body.Close()
@@ -101,7 +92,6 @@ func TestRuntimeRunServesHTTPWhileKafkaStartupBlocks(t *testing.T) {
 				break
 			}
 		}
-
 		select {
 		case <-deadline:
 			t.Fatal("health endpoint did not respond while Kafka startup was blocked")

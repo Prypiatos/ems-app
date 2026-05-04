@@ -73,6 +73,33 @@ From `backend/`
 go run cmd/misc/kafka_producer.go
 ```
 
+## Simple Kafka -> Backend -> Frontend Demo
+From repo root:
+
+```bash
+docker compose up -d
+cd frontend && npm install && npm run dev
+```
+
+In another terminal (repo root), publish test readings:
+
+```bash
+./scripts/kafka_realtime_demo.sh
+```
+
+Open `http://localhost:3000/dashboard` and you should see incoming rows in realtime.
+
+Backend routes used by the dashboard:
+- WebSocket telemetry: `ws://localhost:8080/api/v1/readings`
+- Node events API: `GET http://localhost:8080/api/v1/nodes/node_001/events?limit=10`
+- Node health API: `GET http://localhost:8080/api/v1/nodes/node_001/health`
+
+Optional:
+
+```bash
+COUNT=100 SLEEP_SECONDS=0.2 TOPIC=energy.readings ./scripts/kafka_realtime_demo.sh
+```
+
 ## API Quick Check
 
 ```bash

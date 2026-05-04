@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sort"
 	"time"
 
 	"github.com/Prypiatos/ems-app/backend/internal/utils"
@@ -13,6 +14,40 @@ import (
 type kafkaReader interface {
 	Close() error
 	ReadMessage(ctx context.Context) (skafka.Message, error)
+}
+
+func ListTopics(ctx context.Context) ([]string, error) {
+	broker := utils.Getenv("KAFKA_BROKER", "localhost:9092")
+	connCtx, cancel := context.WithTimeout(ctx, connectionTimeout)
+	defer cancel()
+
+	conn, err := newKafkaConn(connCtx, "tcp", broker)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	typedConn, ok := conn.(*skafka.Conn)
+	if !ok {
+		return nil, errors.New("unexpected kafka connector type")
+	}
+
+	partitions, err := typedConn.ReadPartitions()
+	if err != nil {
+		return nil, err
+	}
+
+	seen := make(map[string]struct{})
+	for _, p := range partitions {
+		seen[p.Topic] = struct{}{}
+	}
+
+	topics := make([]string, 0, len(seen))
+	for t := range seen {
+		topics = append(topics, t)
+	}
+	sort.Strings(topics)
+	return topics, nil
 }
 
 type kafkaConnector interface {
@@ -115,8 +150,8 @@ func (sc *SegmentioConsumer) Close() error {
 	return sc.r.Close()
 }
 
-func (sc *SegmentioConsumer) Consume(ctx context.Context) <-chan []byte {
-	out := make(chan []byte, BufferSize)
+func (sc *SegmentioConsumer) Consume(ctx context.Context) <-chan Record {
+	out := make(chan Record, BufferSize)
 	go func() {
 		defer close(out)
 		for {
@@ -133,21 +168,17 @@ func (sc *SegmentioConsumer) Consume(ctx context.Context) <-chan []byte {
 				continue
 			}
 
+			record := Record{Topic: msg.Topic, Value: msg.Value}
 			select {
-			case out <- msg.Value:
+			case out <- record:
 			default:
-				// Keep consumer healthy even if downstream is temporarily slow.
 				select {
 				case <-out:
 				default:
 				}
-				out <- msg.Value
+				out <- record
 			}
-			slog.Info("message consumed",
-				"topic", msg.Topic,
-				"partition", msg.Partition,
-				"offset", msg.Offset,
-			)
+			slog.Info("message consumed", "topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
 		}
 	}()
 	return out
