@@ -3,11 +3,14 @@ package middleware
 import (
 	"bufio"
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"runtime/debug"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -220,6 +223,74 @@ func GinCORSMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		c.Next()
+	}
+}
+
+func GinPrometheusMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+
+		duration := time.Since(start).Seconds()
+		path := c.Request.URL.Path
+		status := strconv.Itoa(c.Writer.Status())
+
+		httpRequestsTotal.WithLabelValues(c.Request.Method, path, status).Inc()
+		httpRequestDuration.WithLabelValues(c.Request.Method, path).Observe(duration)
+	}
+}
+
+func GinJWTMiddleware(cfg JWTConfig) gin.HandlerFunc {
+	if cfg.IssuerURL == "" {
+		slog.Warn("JWT middleware disabled: KEYCLOAK_ISSUER not set")
+		return func(c *gin.Context) { c.Next() }
+	}
+
+	expectedIssuer := cfg.ExternalIssuerURL
+	if expectedIssuer == "" {
+		expectedIssuer = cfg.IssuerURL
+	}
+
+	cache := &keyCache{
+		keys: make(map[string]*rsa.PublicKey),
+		ttl:  10 * time.Minute,
+	}
+
+	skipSet := make(map[string]bool, len(cfg.SkipPaths))
+	for _, p := range cfg.SkipPaths {
+		skipSet[p] = true
+	}
+
+	jwksURL := cfg.IssuerURL + "/protocol/openid-connect/certs"
+	slog.Info("JWT middleware enabled", "issuer", expectedIssuer, "jwks", jwksURL)
+
+	return func(c *gin.Context) {
+		// Skip paths that don't require auth
+		if skipSet[c.Request.URL.Path] {
+			c.Next()
+			return
+		}
+
+		// Extract Bearer token
+		authHeader := c.Request.Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid Authorization header"})
+			return
+		}
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+
+		// Parse and validate
+		claims, err := validateToken(token, jwksURL, expectedIssuer, cache)
+		if err != nil {
+			slog.Warn("JWT validation failed", "error", err, "path", c.Request.URL.Path)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Attach claims to context
+		ctx := context.WithValue(c.Request.Context(), claimsKey, claims)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }

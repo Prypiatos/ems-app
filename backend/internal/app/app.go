@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -50,10 +51,10 @@ func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
 		middleware.GinRequestIDMiddleware(),
 		middleware.GinLoggingMiddleware(),
 		middleware.GinWithAppContext(appCtx),
-		middleware.PrometheusMiddleware(),
-		middleware.JWTMiddleware(middleware.JWTConfig{
-			IssuerURL:         rt.cfg.KeycloakIssuer,
-			ExternalIssuerURL: rt.cfg.KeycloakIssuerExternal,
+		middleware.GinPrometheusMiddleware(),
+		middleware.GinJWTMiddleware(middleware.JWTConfig{
+			IssuerURL:         os.Getenv("KEYCLOAK_ISSUER"),
+			ExternalIssuerURL: os.Getenv("KEYCLOAK_ISSUER_EXTERNAL"),
 			SkipPaths:         []string{"/", "/metrics", "/api/v1/health", "/api/v1/readings"},
 		}),
 	)

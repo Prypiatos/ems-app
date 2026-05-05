@@ -112,7 +112,7 @@ func setupRoutes(rt *Router) {
 	engine.GET("/api/v1/nodes/:id/health", rt.getNodeHealth)
 	engine.GET("/api/v1/divisions", rt.getDivisions)
 	engine.GET("/api/v1/divisions/:id/summary", rt.getDivisionSummary)
-	engine.GET("/metrics", promhttp.Handler())
+	engine.GET("/metrics", rt.metricsHandler)
 
 	rt.engine = engine
 	rt.Handler = engine
@@ -120,6 +120,10 @@ func setupRoutes(rt *Router) {
 
 func (rt *Router) Engine() *gin.Engine {
 	return rt.engine
+}
+
+func (rt *Router) metricsHandler(c *gin.Context) {
+	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
 }
 
 func (rt *Router) defaultHandler(c *gin.Context) {
