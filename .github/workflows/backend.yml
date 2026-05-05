@@ -39,7 +39,7 @@ jobs:
           curl -s https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
           sudo mv kustomize /usr/local/bin/
         
-          git clone https://${{ secrets.GH_TOKEN }}@github.com/<your-username>/ems-app.git
+          git clone https://${{ secrets.GH_TOKEN }}@github.com/Prypiatos/ems-app.git
           cd ems-app
         
           git checkout main
