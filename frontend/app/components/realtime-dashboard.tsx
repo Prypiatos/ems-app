@@ -147,14 +147,20 @@ export function RealtimeDashboard() {
         const payload = parsed?.data && typeof parsed.data === 'object' ? parsed.data : parsed;
         if (typeof payload.voltage !== 'number' || typeof payload.power !== 'number') return;
 
+        // Normalize timestamp: accept number or numeric string, and ensure milliseconds.
+        let tsNum = Number(payload.timestamp);
+        if (!Number.isFinite(tsNum)) tsNum = Date.now();
+        // If timestamp looks like seconds (e.g. ~1e9), convert to milliseconds.
+        if (tsNum < 1e12) tsNum = tsNum * 1000;
+
         const row: ReadingRow = {
           nodeId: String(payload.node_id ?? 'unknown'),
           voltage: payload.voltage,
           current: payload.current ?? 0,
           power: payload.power,
           energyWh: payload.energy_wh ?? 0,
-          time: fmtTime(payload.timestamp),
-          ts: typeof payload.timestamp === 'number' ? payload.timestamp : Date.now(),
+          time: fmtTime(tsNum),
+          ts: tsNum,
         };
         bufferRef.current.push(row);
       } catch { /* */ }
