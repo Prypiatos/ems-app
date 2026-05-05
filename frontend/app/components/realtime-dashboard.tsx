@@ -12,7 +12,10 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Doughnut, Line } from 'react-chartjs-2';
+import { useAuth } from './auth-provider';
 
+// API goes through Kong gateway (port 8000), WebSocket goes direct to backend (port 8080)
+const KONG_PORT = 8000;
 const BACKEND_PORT = 8080;
 const READINGS_WS_PATH = '/api/v1/readings';
 const NODES_API_PATH = '/api/v1/nodes';
@@ -80,6 +83,7 @@ function formatUptime(seconds: number | undefined): string {
 }
 
 export function RealtimeDashboard() {
+  const { token, username, logout } = useAuth();
   const [connected, setConnected] = useState(false);
   const [rows, setRows] = useState<ReadingRow[]>([]);
   const [events, setEvents] = useState<NodeEvent[]>([]);
@@ -89,31 +93,39 @@ export function RealtimeDashboard() {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState('');
 
+  // Kong gateway URL for REST API calls
   const baseUrl = useMemo(() => {
-    if (typeof window === 'undefined') return `http://localhost:${BACKEND_PORT}`;
-    return `${window.location.protocol}//${window.location.hostname}:${BACKEND_PORT}`;
+    if (typeof window === 'undefined') return `http://localhost:${KONG_PORT}`;
+    return `${window.location.protocol}//${window.location.hostname}:${KONG_PORT}`;
   }, []);
 
+  // Auth headers for API calls through Kong
+  const authHeaders = useMemo(() => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  }, [token]);
+
   const loadNodes = useCallback(async () => {
-    const nodesRes = await fetch(`${baseUrl}${NODES_API_PATH}`);
+    const nodesRes = await fetch(`${baseUrl}${NODES_API_PATH}`, { headers: authHeaders });
     if (!nodesRes.ok) return;
     const nodeList = ((await nodesRes.json()) as string[]).slice().sort();
     if (nodeList.length > 0) {
       setNodes(nodeList);
       if (!nodeList.includes(selectedNode)) setSelectedNode(nodeList[0]);
     }
-  }, [baseUrl, selectedNode]);
+  }, [baseUrl, selectedNode, authHeaders]);
 
   const loadDetails = useCallback(async () => {
     const eventsPath = `/api/v1/nodes/${selectedNode}/events?limit=30`;
     const healthPath = `/api/v1/nodes/${selectedNode}/health`;
     const [eventsRes, healthRes] = await Promise.all([
-      fetch(`${baseUrl}${eventsPath}`),
-      fetch(`${baseUrl}${healthPath}`),
+      fetch(`${baseUrl}${eventsPath}`, { headers: authHeaders }),
+      fetch(`${baseUrl}${healthPath}`, { headers: authHeaders }),
     ]);
     if (eventsRes.ok) setEvents((await eventsRes.json()) as NodeEvent[]);
     if (healthRes.ok) setHealth((await healthRes.json()) as NodeHealth);
-  }, [baseUrl, selectedNode]);
+  }, [baseUrl, selectedNode, authHeaders]);
 
   useEffect(() => {
     const ws = new WebSocket(resolveWsUrl());
@@ -277,7 +289,8 @@ export function RealtimeDashboard() {
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search node telemetry..." />
           </div>
           <button className="iconBtn" type="button" onClick={() => setToast('No new notifications')}>Bell</button>
-          <button className="iconBtn" type="button" onClick={() => setToast('Settings panel coming soon')}>Settings</button>
+          <span className="userBadge">{username ?? 'User'}</span>
+          <button className="iconBtn" type="button" onClick={logout}>Logout</button>
         </div>
       </header>
 

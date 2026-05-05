@@ -78,6 +78,14 @@ body {
   font-size: 12px;
   cursor: pointer;
 }
+.userBadge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #00366d;
+  background: #dce8ff;
+  padding: 5px 10px;
+  border-radius: 999px;
+}
 
 .sideBar {
   position: fixed;
