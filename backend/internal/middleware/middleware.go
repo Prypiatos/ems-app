@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -142,4 +143,83 @@ func Chain(h http.Handler, m ...func(http.Handler) http.Handler) http.Handler {
 		h = m[i](h)
 	}
 	return h
+}
+
+func GinWithAppContext(appCtx context.Context) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithCancelCause(c.Request.Context())
+		defer cancel(nil)
+
+		go func() {
+			select {
+			case <-appCtx.Done():
+				cancel(fmt.Errorf("app shutting down"))
+			case <-ctx.Done():
+			}
+		}()
+
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
+func GinRecoveryMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			if err := recover(); err != nil {
+				slog.ErrorContext(c.Request.Context(), "panic recovered",
+					slog.Any("error", err),
+					slog.String("stack", string(debug.Stack())),
+				)
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Internal Server Error"})
+			}
+		}()
+		c.Next()
+	}
+}
+
+func GinLoggingMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+
+		duration := time.Since(start)
+		reqID := GetRequestID(c.Request.Context())
+
+		slog.Info("http request",
+			slog.String("request_id", reqID),
+			slog.String("method", c.Request.Method),
+			slog.String("path", c.Request.URL.Path),
+			slog.Int("status", c.Writer.Status()),
+			slog.Duration("duration", duration),
+			slog.String("remote_addr", c.Request.RemoteAddr),
+		)
+	}
+}
+
+func GinRequestIDMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, _ := uuid.NewV7()
+		ctx := context.WithValue(c.Request.Context(), requestIDKey, id.String())
+
+		c.Request = c.Request.WithContext(ctx)
+		c.Writer.Header().Set("X-Request-ID", id.String())
+
+		c.Next()
+	}
+}
+
+func GinCORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
 }

@@ -43,19 +43,15 @@ func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
 		WithClientReadDeadline(rt.cfg.ClientReadDeadline).
 		WithClientPingInterval(rt.cfg.ClientPingInterval).
 		Build()
-	mux := http.NewServeMux()
-	mux.Handle("/", router)
-
-	handler := middleware.Chain(
-		mux,
-		middleware.CORSMiddleware(),
-		middleware.RecoveryMiddleware(),
-		middleware.RequestIDMiddleware(),
-		middleware.LoggingMiddleware(),
-		middleware.WithAppContext(appCtx),
+	router.Engine().Use(
+		middleware.GinCORSMiddleware(),
+		middleware.GinRecoveryMiddleware(),
+		middleware.GinRequestIDMiddleware(),
+		middleware.GinLoggingMiddleware(),
+		middleware.GinWithAppContext(appCtx),
 	)
 
-	server := &http.Server{Addr: rt.cfg.ServerAddr, Handler: handler}
+	server := &http.Server{Addr: rt.cfg.ServerAddr, Handler: router}
 
 	errCh := make(chan error, 1)
 	go func() {

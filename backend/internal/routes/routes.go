@@ -2,7 +2,6 @@ package routes
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"github.com/Prypiatos/ems-app/backend/internal/stream"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -24,6 +24,7 @@ type Router struct {
 	clientWriteDeadline time.Duration
 	clientReadDeadline  time.Duration
 	clientPingInterval  time.Duration
+	engine              *gin.Engine
 	http.Handler
 }
 
@@ -98,40 +99,37 @@ func (rb *RouterBuilder) Build() *Router {
 }
 
 func setupRoutes(rt *Router) {
-	router := http.NewServeMux()
+	gin.SetMode(gin.ReleaseMode)
+	engine := gin.New()
 
-	router.HandleFunc("GET /", rt.defaultHandler)
-	router.HandleFunc("GET /api/v1/health", rt.getHealth)
-	router.HandleFunc("GET /api/v1/readings", rt.getLiveReadings)
-	router.HandleFunc("GET /api/v1/nodes", rt.getNodes)
-	router.HandleFunc("GET /api/v1/nodes/{id}/events", rt.getNodeEvents)
-	router.HandleFunc("GET /api/v1/nodes/{id}/health", rt.getNodeHealth)
-	router.HandleFunc("GET /api/v1/divisions", rt.getDivisions)
-	router.HandleFunc("GET /api/v1/divisions/{id}/summary", rt.getDivisionSummary)
+	engine.GET("/", rt.defaultHandler)
+	engine.GET("/api/v1/health", rt.getHealth)
+	engine.GET("/api/v1/readings", rt.getLiveReadings)
+	engine.GET("/api/v1/nodes", rt.getNodes)
+	engine.GET("/api/v1/nodes/:id/events", rt.getNodeEvents)
+	engine.GET("/api/v1/nodes/:id/health", rt.getNodeHealth)
+	engine.GET("/api/v1/divisions", rt.getDivisions)
+	engine.GET("/api/v1/divisions/:id/summary", rt.getDivisionSummary)
 
-	rt.Handler = router
+	rt.engine = engine
+	rt.Handler = engine
 }
 
-func (rt *Router) defaultHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-
-	w.Write([]byte("Welcome!!!"))
+func (rt *Router) Engine() *gin.Engine {
+	return rt.engine
 }
 
-func (rt *Router) getHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	response := map[string]any{"status": "ok"}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		slog.Error("json encoding failed", slog.String("error", err.Error()))
-	}
+func (rt *Router) defaultHandler(c *gin.Context) {
+	c.String(http.StatusOK, "Welcome!!!")
 }
 
-func (rt *Router) getLiveReadings(w http.ResponseWriter, r *http.Request) {
-	conn, err := ws.Upgrader.Upgrade(w, r, nil)
+func (rt *Router) getHealth(c *gin.Context) {
+	c.Header("Content-Type", types.JSONContentType)
+	c.JSON(http.StatusOK, map[string]any{"status": "ok"})
+}
+
+func (rt *Router) getLiveReadings(c *gin.Context) {
+	conn, err := ws.Upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		slog.Error("", "error", err)
 		return
@@ -140,7 +138,7 @@ func (rt *Router) getLiveReadings(w http.ResponseWriter, r *http.Request) {
 	wsClient := ws.NewClient(conn, rt.clientBufferSize, rt.clientWriteDeadline, rt.clientReadDeadline, rt.clientPingInterval)
 	rt.wsHub.Register(wsClient, rt.telemetryTopic)
 
-	ctx, cancel := context.WithCancel(r.Context())
+	ctx, cancel := context.WithCancel(c.Request.Context())
 	defer cancel()
 	defer rt.wsHub.Kickout(wsClient, rt.telemetryTopic)
 
@@ -155,15 +153,15 @@ func (rt *Router) getLiveReadings(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (rt *Router) getNodeEvents(w http.ResponseWriter, r *http.Request) {
+func (rt *Router) getNodeEvents(c *gin.Context) {
 	if rt.state == nil {
-		http.Error(w, "state not configured", http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "state not configured")
 		return
 	}
 
-	nodeID := r.PathValue("id")
+	nodeID := c.Param("id")
 	limit := 20
-	if q := r.URL.Query().Get("limit"); q != "" {
+	if q := c.Query("limit"); q != "" {
 		parsed, err := strconv.Atoi(q)
 		if err == nil && parsed > 0 {
 			limit = parsed
@@ -171,27 +169,27 @@ func (rt *Router) getNodeEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	events := rt.state.GetEvents(nodeID, limit)
-	w.Header().Set("Content-Type", types.JSONContentType)
-	_ = json.NewEncoder(w).Encode(events)
+	c.Header("Content-Type", types.JSONContentType)
+	c.JSON(http.StatusOK, events)
 }
 
-func (rt *Router) getNodes(w http.ResponseWriter, r *http.Request) {
+func (rt *Router) getNodes(c *gin.Context) {
 	if rt.state == nil {
-		http.Error(w, "state not configured", http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "state not configured")
 		return
 	}
 
-	w.Header().Set("Content-Type", types.JSONContentType)
-	_ = json.NewEncoder(w).Encode(rt.state.ListNodes())
+	c.Header("Content-Type", types.JSONContentType)
+	c.JSON(http.StatusOK, rt.state.ListNodes())
 }
 
-func (rt *Router) getNodeHealth(w http.ResponseWriter, r *http.Request) {
+func (rt *Router) getNodeHealth(c *gin.Context) {
 	if rt.state == nil {
-		http.Error(w, "state not configured", http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "state not configured")
 		return
 	}
 
-	nodeID := r.PathValue("id")
+	nodeID := c.Param("id")
 	health, ok := rt.state.GetHealth(nodeID)
 	if !ok {
 		health = stream.Health{
@@ -208,55 +206,55 @@ func (rt *Router) getNodeHealth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", types.JSONContentType)
-	_ = json.NewEncoder(w).Encode(health)
+	c.Header("Content-Type", types.JSONContentType)
+	c.JSON(http.StatusOK, health)
 }
 
 const requestTimeout = 10 * time.Second
 
-func (rt *Router) getDivisions(w http.ResponseWriter, r *http.Request) {
+func (rt *Router) getDivisions(c *gin.Context) {
 	if rt.divisionService == nil {
-		http.Error(w, "division service not configured", http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "division service not configured")
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), requestTimeout)
 	defer cancel()
 
 	divisions, err := rt.divisionService.GetHierarchy(ctx)
 	if err != nil {
 		slog.Error("failed to fetch divisions", "error", err)
-		http.Error(w, "failed to fetch divisions", http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "failed to fetch divisions")
 		return
 	}
 
-	w.Header().Set("Content-Type", types.JSONContentType)
-	json.NewEncoder(w).Encode(divisions)
+	c.Header("Content-Type", types.JSONContentType)
+	c.JSON(http.StatusOK, divisions)
 }
 
-func (rt *Router) getDivisionSummary(w http.ResponseWriter, r *http.Request) {
+func (rt *Router) getDivisionSummary(c *gin.Context) {
 	if rt.divisionService == nil {
-		http.Error(w, "division service not configured", http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "division service not configured")
 		return
 	}
 
-	idStr := r.PathValue("id")
+	idStr := c.Param("id")
 	divisionID, err := uuid.Parse(idStr)
 	if err != nil {
-		http.Error(w, "invalid division id", http.StatusBadRequest)
+		c.String(http.StatusBadRequest, "invalid division id")
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), requestTimeout)
 	defer cancel()
 
 	summary, err := rt.divisionService.GetDivisionSummary(ctx, divisionID)
 	if err != nil {
 		slog.Error("failed to fetch division summary", "error", err, "division_id", divisionID)
-		http.Error(w, "failed to fetch division summary", http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "failed to fetch division summary")
 		return
 	}
 
-	w.Header().Set("Content-Type", types.JSONContentType)
-	json.NewEncoder(w).Encode(summary)
+	c.Header("Content-Type", types.JSONContentType)
+	c.JSON(http.StatusOK, summary)
 }
