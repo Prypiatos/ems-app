@@ -32,3 +32,23 @@ jobs:
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/kong:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/kong:${{ github.sha }}
+
+      - name: Update K8s repo (GitOps sync)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          curl -s https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
+          sudo mv kustomize /usr/local/bin/
+
+          gh auth setup-git
+          gh repo clone Prypiatos/platform-infra
+          cd platform-infra/k8s/ems-app
+
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+          kustomize edit set image sheharakarunarathna/kong=sheharakarunarathna/kong:${{ github.sha }}
+
+          git add .
+          git diff --cached --quiet || git commit -m "Update kong image to ${{ github.sha }}"
+          git push
