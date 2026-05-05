@@ -14,7 +14,15 @@ import (
 )
 
 func TestRouterHealthAndRootHandlers(t *testing.T) {
-	router := NewRouter(ws.NewHub([]string{"energy.readings"}, 1), "energy.readings", stream.NewState(), nil, 1, time.Second, time.Second, time.Second)
+	router := NewRouterBuilder().
+		WithWsHub(ws.NewHub([]string{"energy.readings"}, 1)).
+		WithTelemetryTopic("energy.readings").
+		WithState(stream.NewState()).
+		WithClientBufferSize(1).
+		WithClientWriteDeadline(time.Second).
+		WithClientReadDeadline(time.Second).
+		WithClientPingInterval(time.Second).
+		Build()
 
 	t.Run("root", func(t *testing.T) {
 		rec := httptest.NewRecorder()
@@ -49,7 +57,15 @@ func TestRouterHealthAndRootHandlers(t *testing.T) {
 }
 
 func TestRouterWebsocketReadingsRouteUpgrades(t *testing.T) {
-	router := NewRouter(ws.NewHub([]string{"energy.readings"}, 1), "energy.readings", stream.NewState(), nil, 1, time.Second, time.Second, 0)
+	router := NewRouterBuilder().
+		WithWsHub(ws.NewHub([]string{"energy.readings"}, 1)).
+		WithTelemetryTopic("energy.readings").
+		WithState(stream.NewState()).
+		WithClientBufferSize(1).
+		WithClientWriteDeadline(time.Second).
+		WithClientReadDeadline(time.Second).
+		WithClientPingInterval(0).
+		Build()
 	server := httptest.NewServer(router)
 	defer server.Close()
 
