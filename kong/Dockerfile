@@ -1,5 +1,8 @@
 FROM kong:3.4-alpine
 
+LABEL org.opencontainers.image.title="ems-kong"
+LABEL org.opencontainers.image.description="Kong reverse proxy for the EMS app"
+
 # Copy declarative config into the image
 WORKDIR /usr/local/kong/declarative
 COPY kong.yml /usr/local/kong/declarative/kong.yml
