@@ -1,4 +1,4 @@
-  name: Kong CI/CD - Build and Push Docker Image
+name: Kong CI/CD - Build and Push Docker Image
 
 on:
   push:
