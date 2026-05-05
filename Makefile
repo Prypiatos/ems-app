@@ -4,7 +4,7 @@ BINARY_NAME  := ems-backend
 MIGRATIONS_DIR := ./db/postgres/migrations
 DB_URL         := "postgres://user:password@localhost:5432/ems_db?sslmode=disable"
 
-.PHONY: run run-backend run-frontend test test-backend test-frontend \
+.PHONY: run run-backend run-frontend test test-backend test-frontend test-integration \
         build build-backend build-frontend lint lint-backend lint-frontend \
         clean help \
 		db-migrate-postgres db-migrate-down db-migration-create
@@ -28,6 +28,10 @@ test: test-backend test-frontend ## Run all tests
 
 test-backend: ## Run Go tests with race detector
 	cd $(BACKEND_DIR) && go test -race ./...
+
+test-integration: ## Run backend integration tests (Kafka required)
+	docker compose up -d broker
+	cd $(BACKEND_DIR) && KAFKA_BROKER=localhost:9092 go test -tags=integration ./internal/integration/...
 
 test-frontend: ## Run Next.js / Jest tests
 	cd $(FRONTEND_DIR) && npm test --if-present

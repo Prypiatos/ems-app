@@ -66,6 +66,15 @@ From `backend/`:
 go test ./...
 ```
 
+## Run Integration Tests
+From repo root (requires Docker and Kafka broker via docker compose):
+
+```bash
+make test-integration
+```
+
+This command brings up the Kafka broker and runs the Go integration tests under `backend/internal/integration`.
+
 ## Run mock kafka producer
 From `backend/`
 

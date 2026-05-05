@@ -32,6 +32,27 @@ jobs:
         run: go test -race ./...
         continue-on-error: true
 
+      - name: Start Kafka broker
+        run: docker compose up -d broker
+
+      - name: Wait for Kafka broker
+        run: |
+          for i in {1..20}; do
+            if docker compose exec -T broker /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Kafka broker not ready"
+          docker compose logs broker
+          exit 1
+
+      - name: Run integration tests
+        working-directory: backend
+        env:
+          KAFKA_BROKER: localhost:9092
+        run: go test -tags=integration ./internal/integration/...
+
   lint:
     name: Run Linting
     runs-on: ubuntu-latest
