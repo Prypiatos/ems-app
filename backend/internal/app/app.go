@@ -63,7 +63,7 @@ func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("starting server", "addr", rt.cfg.ServerAddr)
+		slog.Info("starting server at", "addr", rt.cfg.ServerAddr)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 			stop()
