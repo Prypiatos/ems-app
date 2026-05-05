@@ -3,7 +3,7 @@ set -euo pipefail
 
 NODE_TYPE="smart_meter"
 NODE_IDS=("node_001" "node_002" "node_003")
-SLEEP_SECONDS=0.01
+SLEEP_SECONDS=1.0
 
 for NODE_ID in "${NODE_IDS[@]}"; do
   for TOPIC in "energy.nodes.${NODE_ID}.telemetry" "energy.nodes.${NODE_ID}.events" "energy.nodes.${NODE_ID}.health"; do

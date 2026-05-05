@@ -51,7 +51,7 @@ const KONG_PORT = 8000;
 const BACKEND_PORT = 8080;
 const WS_PATH = '/api/v1/readings';
 const NODES_PATH = '/api/v1/nodes';
-const MAX_ROWS = 300; // buffer size across all nodes
+const MAX_ROWS = 5000; // Large buffer to support longer time windows across multiple nodes
 const TABS = ['Overview', 'Live Nodes', 'Events', 'Admin'] as const;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

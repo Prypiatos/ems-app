@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -24,7 +24,7 @@ import type { ReadingRow, NodeHealth } from '../realtime-dashboard';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
 
-const TIME_WINDOW = 60; // show last 60 data points
+const WINDOW_SECONDS = 600; // 10 minutes
 
 type LiveNodesTabProps = {
   nodes: string[];
@@ -40,159 +40,137 @@ function formatUptime(seconds: number | undefined): string {
   return `${d}d ${h}h ${m}m`;
 }
 
-const chartOptions = (title: string, color: string) => ({
+const chartOptions = () => ({
   responsive: true,
   maintainAspectRatio: false,
-  animation: { duration: 0 } as const,
+  animation: { duration: 0 },
   plugins: {
     legend: { display: false },
     tooltip: {
+      enabled: true,
       backgroundColor: '#ffffff',
       titleColor: '#1e293b',
       bodyColor: '#1e293b',
       borderColor: '#e2e8f0',
       borderWidth: 1,
-      titleFont: { size: 12 },
-      bodyFont: { size: 12 },
       padding: 10,
-      cornerRadius: 4,
     },
   },
   scales: {
     x: {
       display: true,
       grid: { display: false },
-      ticks: { maxTicksLimit: 6, font: { size: 10 }, color: '#64748b' },
+      ticks: { 
+        maxTicksLimit: 6, 
+        font: { size: 10 }, 
+        color: '#64748b',
+        autoSkip: true,
+      },
     },
     y: {
       display: true,
+      beginAtZero: true,
       grid: { color: 'rgba(226,232,240,0.8)' },
       ticks: { font: { size: 10 }, color: '#64748b' },
     },
   },
   elements: {
-    point: { radius: 0, hoverRadius: 4 },
-    line: { borderWidth: 2, tension: 0.3 },
+    point: { radius: 0 },
+    line: { borderWidth: 2, tension: 0.1 },
   },
 });
 
-function NodeRow({ nodeId, rows, health }: { nodeId: string; rows: ReadingRow[]; health?: NodeHealth }) {
-  const nodeRows = useMemo(
-    () => rows.filter((r) => r.nodeId === nodeId).slice(0, TIME_WINDOW).reverse(),
-    [rows, nodeId],
-  );
+function NodeRow({ nodeId, rows, health, now }: { nodeId: string; rows: ReadingRow[]; health?: NodeHealth; now: number }) {
+  const { dataPoints, labels, latest } = useMemo(() => {
+    const dataWindow: (ReadingRow | null)[] = new Array(WINDOW_SECONDS).fill(null);
+    const labelWindow: string[] = new Array(WINDOW_SECONDS).fill('');
 
-  const latest = nodeRows.length > 0 ? nodeRows[nodeRows.length - 1] : undefined;
+    // Labels represent the exact second for each slot
+    for (let i = 0; i < WINDOW_SECONDS; i++) {
+      const slotTs = now - (WINDOW_SECONDS - 1 - i) * 1000;
+      labelWindow[i] = new Date(slotTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
 
-  const healthScore = useMemo(() => {
-    if (!health) return 0;
-    let s = 40;
-    if (health.status === 'online') s += 25;
-    if (health.sensor_ok) s += 15;
-    if (health.mqtt_connected) s += 10;
-    if (health.wifi_connected) s += 10;
-    return Math.min(100, s);
-  }, [health]);
+    const nodeReadings = rows.filter((r) => r.nodeId === nodeId);
+    let mostRecent: ReadingRow | undefined;
 
-  const powerData = useMemo(() => ({
-    labels: nodeRows.map((r) => r.time),
+    for (const r of nodeReadings) {
+      const age = Math.floor((now - r.ts) / 1000);
+      if (age >= 0 && age < WINDOW_SECONDS) {
+        const idx = (WINDOW_SECONDS - 1) - age;
+        if (!dataWindow[idx] || r.ts > dataWindow[idx]!.ts) {
+          dataWindow[idx] = r;
+        }
+        if (!mostRecent || r.ts > mostRecent.ts) mostRecent = r;
+      }
+    }
+
+    return { dataPoints: dataWindow, labels: labelWindow, latest: mostRecent };
+  }, [rows, nodeId, now]);
+
+  const powerData = {
+    labels,
     datasets: [{
       label: 'Power (kW)',
-      data: nodeRows.map((r) => r.power),
+      data: dataPoints.map((p) => p ? p.power : null),
       borderColor: '#1976d2',
       backgroundColor: 'rgba(25,118,210,0.1)',
       fill: true,
+      spanGaps: true,
     }],
-  }), [nodeRows]);
+  };
 
-  const voltageData = useMemo(() => ({
-    labels: nodeRows.map((r) => r.time),
+  const voltageData = {
+    labels,
     datasets: [{
       label: 'Voltage (V)',
-      data: nodeRows.map((r) => r.voltage),
+      data: dataPoints.map((p) => p ? p.voltage : null),
       borderColor: '#ed6c02',
       backgroundColor: 'rgba(237,108,2,0.1)',
       fill: true,
+      spanGaps: true,
     }],
-  }), [nodeRows]);
+  };
 
   return (
-    <Card elevation={0} className="mb-6 border border-gray-200 shadow-sm">
+    <Card elevation={0} className="mb-8 border border-gray-200 shadow-sm">
       <CardContent className="p-6">
-        <Box className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
-          <Box className="flex items-center gap-4">
-            <Typography variant="h6" className="font-bold">
-              {nodeId}
-            </Typography>
+        <Box className="flex justify-between items-center mb-6">
+          <Box className="flex items-center gap-3">
+            <Typography variant="h6" className="font-bold">{nodeId}</Typography>
             <StatusBadge status={health?.status ?? 'unknown'} />
           </Box>
-          <Box className="flex items-center gap-4">
+          {health?.uptime_sec !== undefined && (
             <Typography variant="caption" color="text.secondary">
-              Uptime: {formatUptime(health?.uptime_sec)}
+              Uptime: {Math.floor(health.uptime_sec / 60)}m
             </Typography>
-            <Box className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden flex items-center">
-              <Box className="h-full bg-green-500 transition-all duration-300" style={{ width: `${healthScore}%` }} />
-            </Box>
-            <Typography variant="caption" color="success.main" className="font-bold">
-              {healthScore}%
-            </Typography>
-          </Box>
+          )}
         </Box>
 
         <Grid container spacing={4} className="mb-6">
           <Grid size={{ xs: 12, lg: 6 }}>
-            <Box className="bg-gray-50 border border-gray-100 rounded-lg p-4 h-64">
-              <Box className="flex items-center gap-2 mb-2">
-                <Box className="w-2 h-2 rounded-full bg-blue-600" />
-                <Typography variant="subtitle2" color="text.secondary" className="font-bold">
-                  Power (kW)
-                </Typography>
-              </Box>
+            <Box className="bg-gray-50 rounded-lg p-4 h-64 border border-gray-100">
+              <Typography variant="subtitle2" color="text.secondary" className="font-bold mb-2">Power (kW)</Typography>
               <Box className="h-48">
-                {nodeRows.length < 2 ? (
-                  <Typography color="text.secondary" className="h-full flex items-center justify-center">
-                    Waiting for telemetry...
-                  </Typography>
-                ) : (
-                  <Line data={powerData} options={chartOptions('Power', '#1976d2')} />
-                )}
+                <Line data={powerData} options={chartOptions()} />
               </Box>
             </Box>
           </Grid>
           <Grid size={{ xs: 12, lg: 6 }}>
-            <Box className="bg-gray-50 border border-gray-100 rounded-lg p-4 h-64">
-              <Box className="flex items-center gap-2 mb-2">
-                <Box className="w-2 h-2 rounded-full bg-orange-500" />
-                <Typography variant="subtitle2" color="text.secondary" className="font-bold">
-                  Voltage (V)
-                </Typography>
-              </Box>
+            <Box className="bg-gray-50 rounded-lg p-4 h-64 border border-gray-100">
+              <Typography variant="subtitle2" color="text.secondary" className="font-bold mb-2">Voltage (V)</Typography>
               <Box className="h-48">
-                {nodeRows.length < 2 ? (
-                  <Typography color="text.secondary" className="h-full flex items-center justify-center">
-                    Waiting for telemetry...
-                  </Typography>
-                ) : (
-                  <Line data={voltageData} options={chartOptions('Voltage', '#ed6c02')} />
-                )}
+                <Line data={voltageData} options={chartOptions()} />
               </Box>
             </Box>
           </Grid>
         </Grid>
 
         <Grid container spacing={2}>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <MetricCard label="Power" value={latest ? `${latest.power.toFixed(1)} kW` : '—'} />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <MetricCard label="Voltage" value={latest ? `${latest.voltage.toFixed(1)} V` : '—'} />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <MetricCard label="Current" value={latest ? `${latest.current.toFixed(2)} A` : '—'} />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <MetricCard label="Energy" value={latest ? `${latest.energyWh.toFixed(1)} Wh` : '—'} />
-          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><MetricCard label="Power" value={latest ? `${latest.power.toFixed(1)} kW` : '—'} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><MetricCard label="Voltage" value={latest ? `${latest.voltage.toFixed(1)} V` : '—'} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><MetricCard label="Current" value={latest ? `${latest.current.toFixed(2)} A` : '—'} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><MetricCard label="Energy" value={latest ? `${latest.energyWh.toFixed(1)} Wh` : '—'} /></Grid>
         </Grid>
       </CardContent>
     </Card>
@@ -200,30 +178,33 @@ function NodeRow({ nodeId, rows, health }: { nodeId: string; rows: ReadingRow[];
 }
 
 export function LiveNodesTab({ nodes, rows, healthMap }: LiveNodesTabProps) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <Box className="pb-8">
       <Box className="mb-6">
-        <Typography variant="h4" component="h1" gutterBottom className="font-bold">
-          Live Nodes
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Real-time telemetry · last {TIME_WINDOW} readings per node
-        </Typography>
+        <Typography variant="h4" className="font-bold">Live Nodes</Typography>
+        <Typography variant="body2" color="text.secondary">Real-time telemetry · past 10 minutes</Typography>
       </Box>
       
       {nodes.length === 0 ? (
-        <Card elevation={0} className="border border-dashed border-gray-300 bg-transparent">
-          <CardContent className="text-center py-16">
-            <Typography color="text.secondary">
-              No nodes discovered yet. Start the Kafka demo script to see data.
-            </Typography>
-          </CardContent>
-        </Card>
+        <Typography color="text.secondary" className="text-center py-20">No nodes discovered yet.</Typography>
       ) : (
         <Box>
-          {nodes.map((nodeId) => (
-            <NodeRow key={nodeId} nodeId={nodeId} rows={rows} health={healthMap[nodeId]} />
-          ))}
+          {(() => {
+            const visible = nodes.filter((nodeId) => rows.some((r) => r.nodeId === nodeId && now - r.ts <= WINDOW_SECONDS * 1000));
+            if (visible.length === 0) {
+              return <Typography color="text.secondary" className="text-center py-20">No active nodes with data in the last 10 minutes.</Typography>;
+            }
+            return visible.map((nodeId) => (
+              <NodeRow key={nodeId} nodeId={nodeId} rows={rows} health={healthMap[nodeId]} now={now} />
+            ));
+          })()}
         </Box>
       )}
     </Box>

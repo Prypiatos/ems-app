@@ -58,13 +58,15 @@ export function OverviewTab({ nodes, rows, healthMap, events, connected }: Overv
   }, [events]);
 
   const sparklinePerNode = useMemo(() => {
-    const map: Record<string, number[]> = {};
+    const map: Record<string, (number | null)[]> = {};
+    const WINDOW_SIZE = 120; // 2 minutes
     for (const n of nodes) {
-      map[n] = rows
-        .filter((r) => r.nodeId === n)
-        .slice(0, 30)
-        .reverse()
-        .map((r) => r.power);
+      const filtered = rows.filter((r) => r.nodeId === n).slice(0, WINDOW_SIZE);
+      const data = [...filtered].reverse();
+      
+      const paddingCount = WINDOW_SIZE - data.length;
+      const padding = new Array(paddingCount).fill(null);
+      map[n] = [...padding, ...data.map(r => r.power)];
     }
     return map;
   }, [nodes, rows]);
@@ -115,17 +117,30 @@ export function OverviewTab({ nodes, rows, healthMap, events, connected }: Overv
                           <StatusBadge status={h?.status ?? 'unknown'} />
                         </Box>
                         <Box className="h-10 mb-2 w-full">
-                          {spark.length > 2 ? (
+                          {spark.some((v) => v !== null) ? (
                             <svg viewBox={`0 0 ${spark.length} 40`} preserveAspectRatio="none" className="w-full h-full">
                               <polyline
                                 fill="none"
                                 stroke="#1976d2"
                                 strokeWidth="2"
-                                points={spark.map((v, i) => `${i},${40 - ((v - Math.min(...spark)) / (Math.max(...spark) - Math.min(...spark) + 0.1)) * 36}`).join(' ')}
+                                points={spark
+                                  .map((v, i) => {
+                                    if (v === null) return null;
+                                    const validValues = spark.filter((x): x is number => x !== null);
+                                    const min = Math.min(...validValues);
+                                    const max = Math.max(...validValues);
+                                    const range = max - min + 0.1;
+                                    const y = 40 - ((v - min) / range) * 36;
+                                    return `${i},${y}`;
+                                  })
+                                  .filter((p) => p !== null)
+                                  .join(' ')}
                               />
                             </svg>
                           ) : (
-                            <Typography variant="caption" color="text.secondary">Waiting...</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Waiting...
+                            </Typography>
                           )}
                         </Box>
                         <Box className="flex justify-between text-xs text-gray-600 font-medium">
