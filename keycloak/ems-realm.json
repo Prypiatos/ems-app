@@ -94,7 +94,11 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["admin", "viewer", "operator"]
+      "realmRoles": [
+        "admin",
+        "viewer",
+        "operator"
+      ]
     },
     {
       "username": "viewer",
@@ -110,7 +114,9 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["viewer"]
+      "realmRoles": [
+        "viewer"
+      ]
     }
   ]
 }

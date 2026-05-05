@@ -8,18 +8,19 @@ import (
 )
 
 type Config struct {
-	ServerAddr            string
-	Topics                []string
-	TopicGroups           map[string]string
-	TelemetryTopic        string
-	EnableTopicDiscovery  bool
-	KeycloakIssuer        string
-	HubBufferSize         int
-	ClientBufferSize      int
-	PublishTimeout        time.Duration
-	ClientWriteDeadline   time.Duration
-	ClientReadDeadline    time.Duration
-	ClientPingInterval    time.Duration
+	ServerAddr           string
+	Topics               []string
+	TopicGroups          map[string]string
+	TelemetryTopic       string
+	EnableTopicDiscovery bool
+	KeycloakIssuer       string
+	KeycloakIssuerExternal string
+	HubBufferSize        int
+	ClientBufferSize     int
+	PublishTimeout       time.Duration
+	ClientWriteDeadline  time.Duration
+	ClientReadDeadline   time.Duration
+	ClientPingInterval   time.Duration
 }
 
 func Load() Config {
@@ -32,6 +33,7 @@ func Load() Config {
 		TelemetryTopic:       "telemetry",
 		EnableTopicDiscovery: utils.Getenv("ENABLE_TOPIC_DISCOVERY", "true") != "false",
 		KeycloakIssuer:       utils.Getenv("KEYCLOAK_ISSUER", ""),
+		KeycloakIssuerExternal: utils.Getenv("KEYCLOAK_ISSUER_EXTERNAL", ""),
 		HubBufferSize:        getEnvInt("HUB_BUFFER_SIZE", 256),
 		ClientBufferSize:     getEnvInt("CLIENT_BUFFER_SIZE", 256),
 		PublishTimeout:       getEnvDurationMs("HUB_PUBLISH_TIMEOUT_MS", 25),

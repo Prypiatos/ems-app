@@ -20,6 +20,9 @@ import (
 type JWTConfig struct {
 	// IssuerURL is the Keycloak realm URL, e.g. http://keycloak:8180/realms/ems
 	IssuerURL string
+	// ExternalIssuerURL is the Keycloak realm URL expected in the 'iss' claim.
+	// If empty, IssuerURL is used.
+	ExternalIssuerURL string
 	// SkipPaths are paths that don't require authentication
 	SkipPaths []string
 }
@@ -72,6 +75,11 @@ func JWTMiddleware(cfg JWTConfig) func(http.Handler) http.Handler {
 		return func(next http.Handler) http.Handler { return next }
 	}
 
+	expectedIssuer := cfg.ExternalIssuerURL
+	if expectedIssuer == "" {
+		expectedIssuer = cfg.IssuerURL
+	}
+
 	cache := &keyCache{
 		keys: make(map[string]*rsa.PublicKey),
 		ttl:  10 * time.Minute,
@@ -83,7 +91,7 @@ func JWTMiddleware(cfg JWTConfig) func(http.Handler) http.Handler {
 	}
 
 	jwksURL := cfg.IssuerURL + "/protocol/openid-connect/certs"
-	slog.Info("JWT middleware enabled", "issuer", cfg.IssuerURL, "jwks", jwksURL)
+	slog.Info("JWT middleware enabled", "issuer", expectedIssuer, "jwks", jwksURL)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +110,7 @@ func JWTMiddleware(cfg JWTConfig) func(http.Handler) http.Handler {
 			token := strings.TrimPrefix(authHeader, "Bearer ")
 
 			// Parse and validate
-			claims, err := validateToken(token, jwksURL, cfg.IssuerURL, cache)
+			claims, err := validateToken(token, jwksURL, expectedIssuer, cache)
 			if err != nil {
 				slog.Warn("JWT validation failed", "error", err, "path", r.URL.Path)
 				http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusUnauthorized)

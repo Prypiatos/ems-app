@@ -2,23 +2,13 @@ _format_version: "3.0"
 _transform: true
 
 services:
-  - name: ems-backend-ws
-    url: http://ems-backend:8080/api/v1/readings
-    routes:
-      - name: ems-ws
-        paths:
-          - /api/readings
-        strip_path: true
-        # No auth here — browser WebSocket connections
-        # Auth is handled by the backend via token in query param
-
   - name: ems-backend
     url: http://ems-backend:8080
     routes:
       - name: ems-api
         paths:
-          - /api
-        strip_path: true
+          - /
+        strip_path: false
         # JWT validation is handled by the Go backend middleware
         # Kong acts as reverse proxy + rate limiter + CORS
 
@@ -49,7 +39,7 @@ plugins:
 
   - name: rate-limiting
     config:
-      second: 5
+      second: 100
       hour: 10000
       policy: local
 

@@ -19,6 +19,7 @@ services:
       POSTGRES_DB: ems_db
       POSTGRES_SSLMODE: disable
       KEYCLOAK_ISSUER: http://keycloak:8180/realms/ems
+      KEYCLOAK_ISSUER_EXTERNAL: http://localhost:8180/realms/ems
     command: ["go", "run", "./cmd/backend"]
     ports:
       - 8080:8080
