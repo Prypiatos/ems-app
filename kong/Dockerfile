@@ -1,7 +1,7 @@
 FROM kong:3.4.0
 
-LABEL org.opencontainers.image.title="ems-kong"
-LABEL org.opencontainers.image.description="Kong reverse proxy for the EMS app"
+# LABEL org.opencontainers.image.title="ems-kong"
+# LABEL org.opencontainers.image.description="Kong reverse proxy for the EMS app"
 
 # Copy declarative config into the image
 WORKDIR /usr/local/kong/declarative
