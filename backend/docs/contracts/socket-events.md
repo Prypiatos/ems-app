@@ -5,7 +5,8 @@
 > **Endpoint**: `GET /ws` (HTTP upgrade)  
 > **Library**: `gorilla/websocket`
 
---- 
+---  
+
 
 ## Connection
 

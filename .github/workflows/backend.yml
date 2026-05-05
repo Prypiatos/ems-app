@@ -35,19 +35,20 @@ jobs:
           docker push ${{ secrets.DOCKER_USERNAME }}/backend:${{ github.sha }}
 
       - name: Update K8s repo (GitOps sync)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           curl -s https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
           sudo mv kustomize /usr/local/bin/
         
-          git clone https://${{ secrets.GH_TOKEN }}@github.com/Prypiatos/ems-app.git
+          gh auth setup-git
+          gh repo clone Prypiatos/platform-infra
           cd platform-infra/k8s/ems-app
-        
-          git checkout main
-        
-          kustomize edit set image sheharakarunarathna/backend=sheharakarunarathna/backend:${{ github.sha }}
-        
+
           git config user.name "github-actions"
           git config user.email "actions@github.com"
+        
+          kustomize edit set image sheharakarunarathna/backend=sheharakarunarathna/backend:${{ github.sha }}
         
           git add .
           git diff --cached --quiet || git commit -m "Update backend image to ${{ github.sha }}"
