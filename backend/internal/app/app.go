@@ -43,12 +43,19 @@ func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
 		WithClientReadDeadline(rt.cfg.ClientReadDeadline).
 		WithClientPingInterval(rt.cfg.ClientPingInterval).
 		Build()
+
 	router.Engine().Use(
 		middleware.GinCORSMiddleware(),
 		middleware.GinRecoveryMiddleware(),
 		middleware.GinRequestIDMiddleware(),
 		middleware.GinLoggingMiddleware(),
 		middleware.GinWithAppContext(appCtx),
+		middleware.PrometheusMiddleware(),
+		middleware.JWTMiddleware(middleware.JWTConfig{
+			IssuerURL:         rt.cfg.KeycloakIssuer,
+			ExternalIssuerURL: rt.cfg.KeycloakIssuerExternal,
+			SkipPaths:         []string{"/", "/metrics", "/api/v1/health", "/api/v1/readings"},
+		}),
 	)
 
 	server := &http.Server{Addr: rt.cfg.ServerAddr, Handler: router}

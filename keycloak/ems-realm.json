@@ -1,0 +1,122 @@
+{
+  "realm": "ems",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Full system administrator"
+      },
+      {
+        "name": "operator",
+        "description": "Can view and manage devices and alerts"
+      },
+      {
+        "name": "viewer",
+        "description": "Read-only access to dashboards"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "ems-frontend",
+      "name": "EMS Frontend SPA",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:8000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "+"
+      ],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "realm_roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "ems-backend",
+      "name": "EMS Backend Service",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "ems-backend-secret",
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "demo",
+      "email": "demo@ems.local",
+      "firstName": "Demo",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "demo123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin",
+        "viewer",
+        "operator"
+      ]
+    },
+    {
+      "username": "viewer",
+      "email": "viewer@ems.local",
+      "firstName": "View",
+      "lastName": "Only",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "viewer123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "viewer"
+      ]
+    }
+  ]
+}

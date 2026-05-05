@@ -8,17 +8,17 @@ import (
 )
 
 type Config struct {
-	ServerAddr            string
-	Topics                []string
-	TopicGroups           map[string]string
-	TelemetryTopic        string
-	EnableTopicDiscovery  bool
-	HubBufferSize         int
-	ClientBufferSize      int
-	PublishTimeout        time.Duration
-	ClientWriteDeadline   time.Duration
-	ClientReadDeadline    time.Duration
-	ClientPingInterval    time.Duration
+	ServerAddr           string
+	Topics               []string
+	TopicGroups          map[string]string
+	TelemetryTopic       string
+	EnableTopicDiscovery bool
+	HubBufferSize        int
+	ClientBufferSize     int
+	PublishTimeout       time.Duration
+	ClientWriteDeadline  time.Duration
+	ClientReadDeadline   time.Duration
+	ClientPingInterval   time.Duration
 }
 
 func Load() Config {

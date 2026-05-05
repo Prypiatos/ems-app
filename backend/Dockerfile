@@ -82,6 +82,6 @@ LABEL org.opencontainers.image.title="ems-backend" \
       org.opencontainers.image.description="EMS backend service"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:8080/health || exit 1
+  CMD wget -qO- http://localhost:8080/api/v1health || exit 1
 
 CMD ["/app/backend"]
