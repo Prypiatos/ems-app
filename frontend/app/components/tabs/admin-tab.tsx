@@ -35,12 +35,11 @@ export function AdminTab() {
   ]);
 
   const checkServices = useCallback(async () => {
-    const baseBackend = typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}:${BACKEND_PORT}`
-      : `http://localhost:${BACKEND_PORT}`;
+    // Prefer routing health checks through Kong (8000) to ensure CORS headers
     const baseKong = typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.hostname}:${KONG_PORT}`
       : `http://localhost:${KONG_PORT}`;
+    const baseBackend = baseKong; // use Kong as gateway for backend health checks to avoid CORS issues
     const keycloakBase = typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.hostname}:8180`
       : `http://localhost:8180`;
