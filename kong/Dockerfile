@@ -1,4 +1,4 @@
-FROM kong:3.4-alpine
+FROM kong:3.4.0
 
 LABEL org.opencontainers.image.title="ems-kong"
 LABEL org.opencontainers.image.description="Kong reverse proxy for the EMS app"
