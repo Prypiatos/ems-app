@@ -14,6 +14,7 @@ import (
 
 	"github.com/Prypiatos/ems-app/backend/internal/config"
 	"github.com/Prypiatos/ems-app/backend/internal/kafka"
+	appmetrics "github.com/Prypiatos/ems-app/backend/internal/metrics"
 	"github.com/Prypiatos/ems-app/backend/internal/middleware"
 	"github.com/Prypiatos/ems-app/backend/internal/routes"
 	"github.com/Prypiatos/ems-app/backend/internal/stream"
@@ -33,6 +34,10 @@ func New(cfg config.Config) *Runtime {
 }
 
 func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
+	if _, err := appmetrics.New(); err != nil {
+		return fmt.Errorf("initialize metrics: %w", err)
+	}
+
 	wsHub := ws.NewHub(rt.cfg.Topics, rt.cfg.HubBufferSize)
 	state := stream.NewState()
 	router := routes.NewRouterBuilder().

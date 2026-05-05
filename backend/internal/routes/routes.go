@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	appmetrics "github.com/Prypiatos/ems-app/backend/internal/metrics"
 	"github.com/Prypiatos/ems-app/backend/internal/middleware"
 	"github.com/Prypiatos/ems-app/backend/internal/service"
 	"github.com/Prypiatos/ems-app/backend/internal/stream"
@@ -123,7 +124,7 @@ func (rt *Router) Engine() *gin.Engine {
 }
 
 func (rt *Router) metricsHandler(c *gin.Context) {
-	promhttp.Handler().ServeHTTP(c.Writer, c.Request)
+	promhttp.HandlerFor(appmetrics.GetRegistry(), promhttp.HandlerOpts{}).ServeHTTP(c.Writer, c.Request)
 }
 
 func (rt *Router) defaultHandler(c *gin.Context) {

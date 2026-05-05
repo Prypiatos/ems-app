@@ -9,10 +9,10 @@ import (
 	"net"
 	"net/http"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"time"
 
+	appmetrics "github.com/Prypiatos/ems-app/backend/internal/metrics"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -243,15 +243,9 @@ func GinCORSMiddleware() gin.HandlerFunc {
 
 func GinPrometheusMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		start := time.Now()
 		c.Next()
 
-		duration := time.Since(start).Seconds()
-		path := c.Request.URL.Path
-		status := strconv.Itoa(c.Writer.Status())
-
-		httpRequestsTotal.WithLabelValues(c.Request.Method, path, status).Inc()
-		httpRequestDuration.WithLabelValues(c.Request.Method, path).Observe(duration)
+		appmetrics.GetInstance().RecordHTTPRequest(c.Request.URL.Path, c.Writer.Status())
 	}
 }
 
