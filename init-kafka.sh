@@ -1,7 +1,8 @@
 #!/bin/sh
 set -e
 
-TOPICS="energy.readings energy.anomalies energy.forecasts"
+NODE_ID="${NODE_ID:-node_001}"
+TOPICS="energy/nodes/${NODE_ID}/telemetry energy/nodes/${NODE_ID}/events energy/nodes/${NODE_ID}/health"
 
 PARTITIONS=1
 REPLICATION_FACTOR=1

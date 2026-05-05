@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// need this to get the status code for logging
 type responseWriter struct {
 	http.ResponseWriter
 	status int
@@ -32,7 +31,6 @@ func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return hijacker.Hijack()
 }
 
-// inject appCtx to all routes
 func WithAppContext(appCtx context.Context) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +50,6 @@ func WithAppContext(appCtx context.Context) func(http.Handler) http.Handler {
 	}
 }
 
-// recover if panic and log the stack trace
 func RecoveryMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +69,6 @@ func RecoveryMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// log all the requests to the server
 func LoggingMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +100,6 @@ type ctxKey string
 
 const requestIDKey ctxKey = "request_id"
 
-// create a unique request id for requests for better observability
 func RequestIDMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -118,6 +113,23 @@ func RequestIDMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
+func CORSMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With")
+
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func GetRequestID(ctx context.Context) string {
 	if id, ok := ctx.Value(requestIDKey).(string); ok {
 		return id
@@ -125,7 +137,6 @@ func GetRequestID(ctx context.Context) string {
 	return ""
 }
 
-// utility function to apply middleware to a mux
 func Chain(h http.Handler, m ...func(http.Handler) http.Handler) http.Handler {
 	for i := len(m) - 1; i >= 0; i-- {
 		h = m[i](h)

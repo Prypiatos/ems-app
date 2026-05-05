@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Prypiatos/ems-app/backend/internal/service"
+	"github.com/Prypiatos/ems-app/backend/internal/stream"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
 	"github.com/google/uuid"
@@ -15,6 +17,8 @@ import (
 
 type Router struct {
 	wsHub               *ws.Hub
+	telemetryTopic      string
+	state               *stream.State
 	divisionService     *service.DivisionService
 	clientBufferSize    int
 	clientWriteDeadline time.Duration
@@ -23,9 +27,11 @@ type Router struct {
 	http.Handler
 }
 
-func NewRouter(wsHub *ws.Hub, divisionService *service.DivisionService, clientBufferSize int, clientWriteDeadline time.Duration, clientReadDeadline time.Duration, clientPingInterval time.Duration) *Router {
+func NewRouter(wsHub *ws.Hub, telemetryTopic string, state *stream.State, divisionService *service.DivisionService, clientBufferSize int, clientWriteDeadline time.Duration, clientReadDeadline time.Duration, clientPingInterval time.Duration) *Router {
 	rt := new(Router)
 	rt.wsHub = wsHub
+	rt.telemetryTopic = telemetryTopic
+	rt.state = state
 	rt.divisionService = divisionService
 	rt.clientBufferSize = clientBufferSize
 	rt.clientWriteDeadline = clientWriteDeadline
@@ -42,6 +48,9 @@ func setupRoutes(rt *Router) {
 	router.HandleFunc("GET /", rt.defaultHandler)
 	router.HandleFunc("GET /api/v1/health", rt.getHealth)
 	router.HandleFunc("GET /api/v1/readings", rt.getLiveReadings)
+	router.HandleFunc("GET /api/v1/nodes", rt.getNodes)
+	router.HandleFunc("GET /api/v1/nodes/{id}/events", rt.getNodeEvents)
+	router.HandleFunc("GET /api/v1/nodes/{id}/health", rt.getNodeHealth)
 	router.HandleFunc("GET /api/v1/divisions", rt.getDivisions)
 	router.HandleFunc("GET /api/v1/divisions/{id}/summary", rt.getDivisionSummary)
 
@@ -60,16 +69,12 @@ func (rt *Router) defaultHandler(w http.ResponseWriter, r *http.Request) {
 func (rt *Router) getHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	response := map[string]any{
-		"status": "ok",
-	}
-
+	response := map[string]any{"status": "ok"}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		slog.Error("json encoding failed", slog.String("error", err.Error()))
 	}
 }
 
-// consumes kafka topic and send data to websocket connection
 func (rt *Router) getLiveReadings(w http.ResponseWriter, r *http.Request) {
 	conn, err := ws.Upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -78,11 +83,11 @@ func (rt *Router) getLiveReadings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wsClient := ws.NewClient(conn, rt.clientBufferSize, rt.clientWriteDeadline, rt.clientReadDeadline, rt.clientPingInterval)
-	rt.wsHub.Register(wsClient, "energy.readings")
+	rt.wsHub.Register(wsClient, rt.telemetryTopic)
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	defer rt.wsHub.Kickout(wsClient, "energy.readings")
+	defer rt.wsHub.Kickout(wsClient, rt.telemetryTopic)
 
 	go wsClient.Write(ctx)
 	go wsClient.PingLoop(ctx)
@@ -95,9 +100,65 @@ func (rt *Router) getLiveReadings(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (rt *Router) getNodeEvents(w http.ResponseWriter, r *http.Request) {
+	if rt.state == nil {
+		http.Error(w, "state not configured", http.StatusInternalServerError)
+		return
+	}
+
+	nodeID := r.PathValue("id")
+	limit := 20
+	if q := r.URL.Query().Get("limit"); q != "" {
+		parsed, err := strconv.Atoi(q)
+		if err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	events := rt.state.GetEvents(nodeID, limit)
+	w.Header().Set("Content-Type", types.JSONContentType)
+	_ = json.NewEncoder(w).Encode(events)
+}
+
+func (rt *Router) getNodes(w http.ResponseWriter, r *http.Request) {
+	if rt.state == nil {
+		http.Error(w, "state not configured", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", types.JSONContentType)
+	_ = json.NewEncoder(w).Encode(rt.state.ListNodes())
+}
+
+func (rt *Router) getNodeHealth(w http.ResponseWriter, r *http.Request) {
+	if rt.state == nil {
+		http.Error(w, "state not configured", http.StatusInternalServerError)
+		return
+	}
+
+	nodeID := r.PathValue("id")
+	health, ok := rt.state.GetHealth(nodeID)
+	if !ok {
+		health = stream.Health{
+			NodeID:        nodeID,
+			NodeType:      "unknown",
+			Timestamp:     time.Now().UnixMilli(),
+			SequenceNo:    0,
+			Status:        "unknown",
+			UptimeSec:     0,
+			MQTTConnected: false,
+			WiFiConnected: false,
+			SensorOK:      false,
+			BufferedCount: 0,
+		}
+	}
+
+	w.Header().Set("Content-Type", types.JSONContentType)
+	_ = json.NewEncoder(w).Encode(health)
+}
+
 const requestTimeout = 10 * time.Second
 
-// GetDivisions returns the hierarchical division tree.
 func (rt *Router) getDivisions(w http.ResponseWriter, r *http.Request) {
 	if rt.divisionService == nil {
 		http.Error(w, "division service not configured", http.StatusInternalServerError)
@@ -118,7 +179,6 @@ func (rt *Router) getDivisions(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(divisions)
 }
 
-// GetDivisionSummary returns a division with realtime metrics.
 func (rt *Router) getDivisionSummary(w http.ResponseWriter, r *http.Request) {
 	if rt.divisionService == nil {
 		http.Error(w, "division service not configured", http.StatusInternalServerError)

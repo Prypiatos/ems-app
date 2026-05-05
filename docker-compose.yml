@@ -3,8 +3,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      kafka-init:
-        condition: service_completed_successfully
     build:
       context: ./backend
       target: dev-stage
@@ -88,16 +86,6 @@ services:
       timeout: 5s
       retries: 8
       start_period: 20s
-
-  kafka-init:
-    image: apache/kafka:4.2.0
-    depends_on:
-      broker:
-        condition: service_healthy
-    volumes:
-      - ./init-kafka.sh:/init-kafka.sh
-    entrypoint: ["/bin/sh", "/init-kafka.sh"]
-    restart: "no"
 
 volumes:
   postgres_data:
