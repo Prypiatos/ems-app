@@ -9,7 +9,8 @@ services:
         paths:
           - /api/readings
         strip_path: true
-        # No basic-auth here to allow browser WebSocket connections
+        # No auth here — browser WebSocket connections
+        # Auth is handled by the backend via token in query param
 
   - name: ems-backend
     url: http://ems-backend:8080
@@ -18,10 +19,8 @@ services:
         paths:
           - /api
         strip_path: true
-        plugins:
-          - name: basic-auth
-            config:
-              hide_credentials: true
+        # JWT validation is handled by the Go backend middleware
+        # Kong acts as reverse proxy + rate limiter + CORS
 
 plugins:
   - name: cors
@@ -54,13 +53,5 @@ plugins:
       hour: 10000
       policy: local
 
-consumers:
-  - username: admin_user
-    basicauth_credentials:
-      - username: admin
-        password: admin-password-2024
-
-  - username: guest_user
-    basicauth_credentials:
-      - username: guest
-        password: guest-password-2024
+  - name: prometheus
+    config: {}

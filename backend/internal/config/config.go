@@ -13,6 +13,7 @@ type Config struct {
 	TopicGroups           map[string]string
 	TelemetryTopic        string
 	EnableTopicDiscovery  bool
+	KeycloakIssuer        string
 	HubBufferSize         int
 	ClientBufferSize      int
 	PublishTimeout        time.Duration
@@ -30,6 +31,7 @@ func Load() Config {
 		TopicGroups:          map[string]string{},
 		TelemetryTopic:       "telemetry",
 		EnableTopicDiscovery: utils.Getenv("ENABLE_TOPIC_DISCOVERY", "true") != "false",
+		KeycloakIssuer:       utils.Getenv("KEYCLOAK_ISSUER", ""),
 		HubBufferSize:        getEnvInt("HUB_BUFFER_SIZE", 256),
 		ClientBufferSize:     getEnvInt("CLIENT_BUFFER_SIZE", 256),
 		PublishTimeout:       getEnvDurationMs("HUB_PUBLISH_TIMEOUT_MS", 25),

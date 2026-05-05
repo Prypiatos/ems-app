@@ -18,6 +18,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: ems_db
       POSTGRES_SSLMODE: disable
+      KEYCLOAK_ISSUER: http://keycloak:8180/realms/ems
     command: ["go", "run", "./cmd/backend"]
     ports:
       - 8080:8080
@@ -58,6 +59,26 @@ services:
       - "8443:8443"
       - "8444:8444"
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8180
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+    ports:
+      - "8180:8180"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8180 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && timeout 2 cat <&3 | grep -q 'UP'"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
+
   broker:
     image: apache/kafka:4.2.0
     hostname: broker
@@ -87,5 +108,32 @@ services:
       retries: 8
       start_period: 20s
 
+  prometheus:
+    image: prom/prometheus:v3.4.0
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SERVER_HTTP_PORT: "3001"
+    ports:
+      - "3001:3001"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:

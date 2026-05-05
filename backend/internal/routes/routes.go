@@ -8,11 +8,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Prypiatos/ems-app/backend/internal/middleware"
 	"github.com/Prypiatos/ems-app/backend/internal/service"
 	"github.com/Prypiatos/ems-app/backend/internal/stream"
 	"github.com/Prypiatos/ems-app/backend/internal/types"
 	"github.com/Prypiatos/ems-app/backend/internal/ws"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Router struct {
@@ -102,6 +104,7 @@ func setupRoutes(rt *Router) {
 
 	router.HandleFunc("GET /", rt.defaultHandler)
 	router.HandleFunc("GET /api/v1/health", rt.getHealth)
+	router.Handle("GET /metrics", promhttp.Handler())
 	router.HandleFunc("GET /api/v1/readings", rt.getLiveReadings)
 	router.HandleFunc("GET /api/v1/nodes", rt.getNodes)
 	router.HandleFunc("GET /api/v1/nodes/{id}/events", rt.getNodeEvents)
@@ -137,12 +140,15 @@ func (rt *Router) getLiveReadings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	middleware.IncWebSocketConnections()
+
 	wsClient := ws.NewClient(conn, rt.clientBufferSize, rt.clientWriteDeadline, rt.clientReadDeadline, rt.clientPingInterval)
 	rt.wsHub.Register(wsClient, rt.telemetryTopic)
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	defer rt.wsHub.Kickout(wsClient, rt.telemetryTopic)
+	defer middleware.DecWebSocketConnections()
 
 	go wsClient.Write(ctx)
 	go wsClient.PingLoop(ctx)

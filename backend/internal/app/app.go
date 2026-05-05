@@ -52,6 +52,11 @@ func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
 		middleware.RecoveryMiddleware(),
 		middleware.RequestIDMiddleware(),
 		middleware.LoggingMiddleware(),
+		middleware.PrometheusMiddleware(),
+		middleware.JWTMiddleware(middleware.JWTConfig{
+			IssuerURL: rt.cfg.KeycloakIssuer,
+			SkipPaths: []string{"/", "/metrics", "/api/v1/health", "/api/v1/readings"},
+		}),
 		middleware.WithAppContext(appCtx),
 	)
 
