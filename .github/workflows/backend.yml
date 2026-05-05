@@ -41,7 +41,6 @@ jobs:
         
           git clone https://${{ secrets.GH_TOKEN }}@github.com/Prypiatos/ems-app.git
           cd ems-app
-          cd ems-app
         
           git checkout main
         
