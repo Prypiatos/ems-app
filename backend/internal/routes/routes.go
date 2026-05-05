@@ -261,7 +261,7 @@ func (rt *Router) getDivisionSummary(c *gin.Context) {
 	summary, err := rt.divisionService.GetDivisionSummary(ctx, divisionID)
 	if err != nil {
 		slog.Error("failed to fetch division summary", "error", err, "division_id", divisionID)
-		c.String(http.StatusInternalServerError, "failed to fetch division summary")
+		c.String(http.StatusInternalServerError, "failed to fetch division summary ")
 		return
 	}
 
