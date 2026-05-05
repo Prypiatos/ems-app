@@ -34,7 +34,15 @@ func New(cfg config.Config) *Runtime {
 func (rt *Runtime) Run(appCtx context.Context, stop context.CancelFunc) error {
 	wsHub := ws.NewHub(rt.cfg.Topics, rt.cfg.HubBufferSize)
 	state := stream.NewState()
-	router := routes.NewRouter(wsHub, rt.cfg.TelemetryTopic, state, nil, rt.cfg.ClientBufferSize, rt.cfg.ClientWriteDeadline, rt.cfg.ClientReadDeadline, rt.cfg.ClientPingInterval)
+	router := routes.NewRouterBuilder().
+		WithWsHub(wsHub).
+		WithTelemetryTopic(rt.cfg.TelemetryTopic).
+		WithState(state).
+		WithClientBufferSize(rt.cfg.ClientBufferSize).
+		WithClientWriteDeadline(rt.cfg.ClientWriteDeadline).
+		WithClientReadDeadline(rt.cfg.ClientReadDeadline).
+		WithClientPingInterval(rt.cfg.ClientPingInterval).
+		Build()
 	mux := http.NewServeMux()
 	mux.Handle("/", router)
 

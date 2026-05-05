@@ -21,7 +21,16 @@ import (
 func newTestRouter(divService *service.DivisionService) (*routes.Router, *ws.Hub) {
 	topics := []string{"energy.readings"}
 	hub := ws.NewHub(topics, 8)
-	router := routes.NewRouter(hub, "energy.readings", stream.NewState(), divService, 8, 0, 0, 0)
+	router := routes.NewRouterBuilder().
+		WithWsHub(hub).
+		WithTelemetryTopic("energy.readings").
+		WithState(stream.NewState()).
+		WithDivisionService(divService).
+		WithClientBufferSize(8).
+		WithClientWriteDeadline(0).
+		WithClientReadDeadline(0).
+		WithClientPingInterval(0).
+		Build()
 	return router, hub
 }
 

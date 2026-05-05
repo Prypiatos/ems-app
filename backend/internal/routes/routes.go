@@ -27,18 +27,73 @@ type Router struct {
 	http.Handler
 }
 
-func NewRouter(wsHub *ws.Hub, telemetryTopic string, state *stream.State, divisionService *service.DivisionService, clientBufferSize int, clientWriteDeadline time.Duration, clientReadDeadline time.Duration, clientPingInterval time.Duration) *Router {
-	rt := new(Router)
-	rt.wsHub = wsHub
-	rt.telemetryTopic = telemetryTopic
-	rt.state = state
-	rt.divisionService = divisionService
-	rt.clientBufferSize = clientBufferSize
-	rt.clientWriteDeadline = clientWriteDeadline
-	rt.clientReadDeadline = clientReadDeadline
-	rt.clientPingInterval = clientPingInterval
-	setupRoutes(rt)
+type RouterBuilder struct {
+	wsHub               *ws.Hub
+	telemetryTopic      string
+	state               *stream.State
+	divisionService     *service.DivisionService
+	clientBufferSize    int
+	clientWriteDeadline time.Duration
+	clientReadDeadline  time.Duration
+	clientPingInterval  time.Duration
+}
 
+func NewRouterBuilder() *RouterBuilder {
+	return &RouterBuilder{}
+}
+
+func (rb *RouterBuilder) WithWsHub(wsHub *ws.Hub) *RouterBuilder {
+	rb.wsHub = wsHub
+	return rb
+}
+
+func (rb *RouterBuilder) WithTelemetryTopic(telemetryTopic string) *RouterBuilder {
+	rb.telemetryTopic = telemetryTopic
+	return rb
+}
+
+func (rb *RouterBuilder) WithState(state *stream.State) *RouterBuilder {
+	rb.state = state
+	return rb
+}
+
+func (rb *RouterBuilder) WithDivisionService(divisionService *service.DivisionService) *RouterBuilder {
+	rb.divisionService = divisionService
+	return rb
+}
+
+func (rb *RouterBuilder) WithClientBufferSize(clientBufferSize int) *RouterBuilder {
+	rb.clientBufferSize = clientBufferSize
+	return rb
+}
+
+func (rb *RouterBuilder) WithClientWriteDeadline(clientWriteDeadline time.Duration) *RouterBuilder {
+	rb.clientWriteDeadline = clientWriteDeadline
+	return rb
+}
+
+func (rb *RouterBuilder) WithClientReadDeadline(clientReadDeadline time.Duration) *RouterBuilder {
+	rb.clientReadDeadline = clientReadDeadline
+	return rb
+}
+
+func (rb *RouterBuilder) WithClientPingInterval(clientPingInterval time.Duration) *RouterBuilder {
+	rb.clientPingInterval = clientPingInterval
+	return rb
+}
+
+func (rb *RouterBuilder) Build() *Router {
+	rt := &Router{
+		wsHub:               rb.wsHub,
+		telemetryTopic:      rb.telemetryTopic,
+		state:               rb.state,
+		divisionService:     rb.divisionService,
+		clientBufferSize:    rb.clientBufferSize,
+		clientWriteDeadline: rb.clientWriteDeadline,
+		clientReadDeadline:  rb.clientReadDeadline,
+		clientPingInterval:  rb.clientPingInterval,
+	}
+	setupRoutes(rt)
 	return rt
 }
 
