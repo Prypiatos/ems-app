@@ -12,6 +12,30 @@ services:
         # JWT validation is handled by the Go backend middleware
         # Kong acts as reverse proxy + rate limiter + CORS
 
+  - name: go-backend
+    url: http://ems-backend:8080
+    routes:
+      - name: go-api
+        paths:
+          - /go
+        strip_path: true
+
+  - name: py-backend
+    url: http://api:8000
+    routes:
+      - name: py-api
+        paths:
+          - /py
+        strip_path: true
+
+  - name: keycloak
+    url: http://keycloak:8180
+    routes:
+      - name: keycloak-api
+        paths:
+          - /keycloak
+        strip_path: true
+
 plugins:
   - name: cors
     config:

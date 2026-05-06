@@ -55,6 +55,7 @@ services:
       - "8001:8001"
       - "8443:8443"
       - "8444:8444"
+    
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
@@ -143,8 +144,10 @@ services:
       # No special container-side env required for default setup.
       NODE_ENV: production
       NEXT_PUBLIC_API_GATEWAY_URL: "http://kong:8000"
+    # frontend does not need the external network for simple host-based routing
 
 volumes:
   postgres_data:
   prometheus_data:
   grafana_data:
+

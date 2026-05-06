@@ -64,13 +64,13 @@ export function AdminTab() {
       checks.push({ name: 'Kong Gateway', url: `${baseKong}`, status: 'down' });
     }
 
-    // Keycloak
+    // Keycloak (route through gateway under /keycloak if configured)
     try {
       const t0 = performance.now();
-      const res = await fetch(`${keycloakBase}/realms/ems`, { signal: AbortSignal.timeout(5000) });
-      checks.push({ name: 'Keycloak', url: `${keycloakBase}`, status: res.ok ? 'up' : 'down', latency: Math.round(performance.now() - t0) });
+      const res = await apiFetch(`/keycloak/realms/ems`, { signal: AbortSignal.timeout(5000) });
+      checks.push({ name: 'Keycloak', url: `${gatewayBase()}/keycloak`, status: res.ok ? 'up' : 'down', latency: Math.round(performance.now() - t0) });
     } catch {
-      checks.push({ name: 'Keycloak', url: keycloakBase, status: 'down' });
+      checks.push({ name: 'Keycloak', url: `${gatewayBase()}/keycloak`, status: 'down' });
     }
 
     setServices(checks);
