@@ -58,7 +58,7 @@ function fmtTime(input: unknown): string {
 
 // ── Main Component ───────────────────────────────────────────────────────────
 export function RealtimeDashboard() {
-  const { token } = useAuth();
+  const { token, roles } = useAuth();
   const [tabIndex, setTabIndex] = useState(0);
   const [connected, setConnected] = useState(false);
   const [rows, setRows] = useState<ReadingRow[]>([]);
@@ -160,12 +160,17 @@ export function RealtimeDashboard() {
     return () => clearInterval(t);
   }, [loadDetails]);
 
-  const dashboardTabs = [
-    { label: 'Overview', index: 0 },
-    { label: 'Live Nodes', index: 1 },
-    { label: 'Events', index: 2 },
-    { label: 'Admin', index: 3 },
-  ];
+  const dashboardTabs = useMemo(() => {
+    const tabs = [
+      { label: 'Overview', index: 0 },
+      { label: 'Live Nodes', index: 1 },
+      { label: 'Events', index: 2 },
+    ];
+    if (roles.includes('admin')) {
+      tabs.push({ label: 'Admin', index: 3 });
+    }
+    return tabs;
+  }, [roles]);
 
   return (
     <Shell 
@@ -177,7 +182,7 @@ export function RealtimeDashboard() {
       {tabIndex === 0 && <OverviewTab nodes={nodes} rows={rows} healthMap={healthMap} events={eventsMap} connected={connected} />}
       {tabIndex === 1 && <LiveNodesTab nodes={nodes} rows={rows} healthMap={healthMap} />}
       {tabIndex === 2 && <EventsTab events={eventsMap} nodes={nodes} />}
-      {tabIndex === 3 && <AdminTab />}
+      {tabIndex === 3 && roles.includes('admin') && <AdminTab />}
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
     </Shell>
   );

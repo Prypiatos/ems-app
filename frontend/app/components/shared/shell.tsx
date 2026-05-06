@@ -44,7 +44,7 @@ type ShellProps = {
 };
 
 export function Shell({ children, connected = false, title, tabs, tabValue, onTabChange }: ShellProps) {
-  const { username, logout } = useAuth();
+  const { username, logout, roles } = useAuth();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -231,7 +231,7 @@ export function Shell({ children, connected = false, title, tabs, tabValue, onTa
                     {username ?? 'User'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
-                    Administrator
+                    {roles.includes('admin') ? 'Administrator' : roles.includes('operator') ? 'Operator' : 'Guest'}
                   </Typography>
                 </Box>
               </Box>
