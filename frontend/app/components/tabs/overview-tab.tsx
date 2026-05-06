@@ -9,8 +9,6 @@ import CardContent from '@mui/material/CardContent';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
-import ListItemAvatar from '@mui/material/ListItemAvatar';
-import Avatar from '@mui/material/Avatar';
 import Divider from '@mui/material/Divider';
 
 import { MetricCard } from '../shared/metric-card';
@@ -72,57 +70,82 @@ export function OverviewTab({ nodes, rows, healthMap, events, connected }: Overv
   }, [nodes, rows]);
 
   return (
-    <Box className="pb-8">
-      <Box className="flex items-center gap-4 mb-6">
-        <Typography variant="h4" component="h1" className="font-bold">
-          System Overview
-        </Typography>
-        <StatusBadge status={connected ? 'online' : 'offline'} size="medium" />
+    <Box sx={{ pb: 6 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: -1 }}>
+            System Overview
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+            Real-time energy consumption and node status.
+          </Typography>
+        </Box>
+        <StatusBadge status={connected ? 'Connected' : 'Disconnected'} size="medium" />
       </Box>
 
-      <Grid container spacing={3} className="mb-6">
+      <Grid container spacing={3} sx={{ mb: 6 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <MetricCard label="Total Nodes" value={String(nodes.length)} sub={`${onlineCount} online`} status={onlineCount === nodes.length ? 'ok' : 'neutral'} />
+          <MetricCard label="Total Nodes" value={String(nodes.length)} sub={`${onlineCount} active now`} status={onlineCount === nodes.length ? 'ok' : 'neutral'} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <MetricCard label="Total Power" value={`${totalPower.toFixed(1)} kW`} status="neutral" />
+          <MetricCard label="Live Power" value={`${totalPower.toFixed(2)} kW`} status="neutral" />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <MetricCard label="Active Alerts" value={String(totalAlerts)} status={totalAlerts > 0 ? 'bad' : 'ok'} />
+          <MetricCard label="System Alerts" value={String(totalAlerts)} sub="High priority" status={totalAlerts > 0 ? 'bad' : 'ok'} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <MetricCard label="WebSocket" value={connected ? 'Connected' : 'Disconnected'} status={connected ? 'ok' : 'bad'} />
+          <MetricCard label="Stream Health" value={connected ? 'Optimal' : 'Offline'} status={connected ? 'ok' : 'bad'} />
         </Grid>
       </Grid>
 
       <Grid container spacing={4}>
         <Grid size={{ xs: 12, md: 8 }}>
-          <Card elevation={0} className="border border-gray-200">
-            <CardContent>
-              <Typography variant="h6" className="font-bold mb-4">
-                Node Status
+          <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid rgba(0, 0, 0, 0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
+            <CardContent sx={{ p: 4 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 4 }}>
+                Active Monitoring Nodes
               </Typography>
-              <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr' }, gap: 3 }}>
                 {nodes.map((nodeId) => {
                   const h = healthMap[nodeId];
                   const spark = sparklinePerNode[nodeId] ?? [];
                   const latest = rows.find((r) => r.nodeId === nodeId);
                   return (
-                    <Card key={nodeId} variant="outlined" className="bg-gray-50">
-                      <CardContent className="p-3">
-                        <Box className="flex justify-between items-center mb-2">
-                          <Typography variant="subtitle2" className="font-bold">
+                    <Card key={nodeId} variant="outlined" sx={{ borderRadius: 3, bgcolor: '#fcfdfe', border: '1px solid rgba(0,0,0,0.05)', transition: 'all 0.2s', '&:hover': { bgcolor: 'white', boxShadow: '0 8px 16px rgba(0,0,0,0.05)' } }}>
+                      <CardContent sx={{ p: 2.5 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                             {nodeId}
                           </Typography>
                           <StatusBadge status={h?.status ?? 'unknown'} />
                         </Box>
-                        <Box className="h-10 mb-2 w-full">
+                        <Box sx={{ height: 50, mb: 2, width: '100%', overflow: 'hidden' }}>
                           {spark.some((v) => v !== null) ? (
-                            <svg viewBox={`0 0 ${spark.length} 40`} preserveAspectRatio="none" className="w-full h-full">
+                            <svg viewBox={`0 0 ${spark.length} 40`} preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
+                              <defs>
+                                <linearGradient id={`grad-${nodeId}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                  <stop offset="0%" style={{ stopColor: '#1976d2', stopOpacity: 0.2 }} />
+                                  <stop offset="100%" style={{ stopColor: '#1976d2', stopOpacity: 0 }} />
+                                </linearGradient>
+                              </defs>
+                              <path
+                                d={`M 0 40 ${spark.map((v, i) => {
+                                  if (v === null) return '';
+                                  const validValues = spark.filter((x): x is number => x !== null);
+                                  const min = Math.min(...validValues);
+                                  const max = Math.max(...validValues);
+                                  const range = max - min + 0.1;
+                                  const y = 40 - ((v - min) / range) * 32;
+                                  return `L ${i} ${y}`;
+                                }).join(' ')} L ${spark.length} 40 Z`}
+                                fill={`url(#grad-${nodeId})`}
+                              />
                               <polyline
                                 fill="none"
                                 stroke="#1976d2"
-                                strokeWidth="2"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
                                 points={spark
                                   .map((v, i) => {
                                     if (v === null) return null;
@@ -130,7 +153,7 @@ export function OverviewTab({ nodes, rows, healthMap, events, connected }: Overv
                                     const min = Math.min(...validValues);
                                     const max = Math.max(...validValues);
                                     const range = max - min + 0.1;
-                                    const y = 40 - ((v - min) / range) * 36;
+                                    const y = 40 - ((v - min) / range) * 32;
                                     return `${i},${y}`;
                                   })
                                   .filter((p) => p !== null)
@@ -138,72 +161,72 @@ export function OverviewTab({ nodes, rows, healthMap, events, connected }: Overv
                               />
                             </svg>
                           ) : (
-                            <Typography variant="caption" color="text.secondary">
-                              Waiting...
-                            </Typography>
+                            <Box sx={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(0,0,0,0.02)', borderRadius: 1 }}>
+                              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                                Initializing...
+                              </Typography>
+                            </Box>
                           )}
                         </Box>
-                        <Box className="flex justify-between text-xs text-gray-600 font-medium">
-                          <span>{latest ? `${latest.power.toFixed(1)} kW` : '—'}</span>
-                          <span>{latest ? `${latest.voltage.toFixed(1)} V` : '—'}</span>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>POWER</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 800 }}>{latest ? `${latest.power.toFixed(1)} kW` : '—'}</Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'right' }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>VOLTAGE</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 800 }}>{latest ? `${latest.voltage.toFixed(1)} V` : '—'}</Typography>
+                          </Box>
                         </Box>
                       </CardContent>
                     </Card>
                   );
                 })}
-                {nodes.length === 0 && (
-                  <Typography color="text.secondary" className="py-4 text-center col-span-full">
-                    No nodes discovered yet
-                  </Typography>
-                )}
               </Box>
             </CardContent>
           </Card>
         </Grid>
 
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card elevation={0} className="border border-gray-200 h-full">
-            <CardContent>
-              <Typography variant="h6" className="font-bold mb-4">
-                Recent Events
+          <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid rgba(0, 0, 0, 0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.04)', height: '100%' }}>
+            <CardContent sx={{ p: 4 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 4 }}>
+                Recent Activity
               </Typography>
               {recentEvents.length === 0 ? (
-                <Typography color="text.secondary" className="text-center py-8">
-                  No events yet
-                </Typography>
+                <Box sx={{ py: 10, textAlign: 'center' }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                    No recent events detected
+                  </Typography>
+                </Box>
               ) : (
                 <List disablePadding>
                   {recentEvents.map((e, i) => {
-                    const sevColor = e.severity === 'high' ? 'error.main' : e.severity === 'medium' ? 'warning.main' : 'primary.main';
-                    const sevBg = e.severity === 'high' ? 'error.light' : e.severity === 'medium' ? 'warning.light' : 'primary.light';
+                    const sevColor = e.severity === 'high' ? '#ef4444' : e.severity === 'medium' ? '#f59e0b' : '#3b82f6';
                     return (
-                      <div key={`${e.timestamp}-${i}`}>
-                        <ListItem alignItems="flex-start" className="px-0">
-                          <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: sevBg, color: sevColor, width: 32, height: 32, fontSize: 14, fontWeight: 'bold' }}>
-                              {e.severity.charAt(0).toUpperCase()}
-                            </Avatar>
-                          </ListItemAvatar>
+                      <Box key={`${e.timestamp}-${i}`} sx={{ mb: i < recentEvents.length - 1 ? 2 : 0 }}>
+                        <ListItem alignItems="flex-start" sx={{ px: 0, py: 1 }}>
+                          <Box sx={{ minWidth: 4, alignSelf: 'stretch', bgcolor: sevColor, borderRadius: 1, mr: 2, opacity: 0.8 }} />
                           <ListItemText
                             primary={
-                              <Box className="flex justify-between items-center">
-                                <Typography variant="subtitle2" color="primary.main" className="font-bold">
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary' }}>
                                   {e.nodeId}
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {new Date(e.timestamp > 1e12 ? e.timestamp : e.timestamp * 1000).toLocaleTimeString()}
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                                  {new Date(e.timestamp > 1e12 ? e.timestamp : e.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </Typography>
                               </Box>
                             }
                             secondary={
-                              <Typography variant="body2" color="text.primary" className="mt-1 truncate">
+                              <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary', fontWeight: 500, fontSize: '0.825rem' }}>
                                 {e.message}
                               </Typography>
                             }
                           />
                         </ListItem>
-                        {i < recentEvents.length - 1 && <Divider component="li" />}
-                      </div>
+                        {i < recentEvents.length - 1 && <Divider sx={{ ml: 3, opacity: 0.4 }} />}
+                      </Box>
                     );
                   })}
                 </List>

@@ -1,30 +1,12 @@
 'use client';
-import Link from 'next/link';
-import { Button, Box, Typography, AppBar, Toolbar } from '@mui/material';
+
 import Recommendations from '../components/recommendations';
+import { Shell } from '../components/shared/shell';
 
 export default function Page() {
   return (
-    <Box className="min-h-screen bg-slate-50 flex flex-col">
-      <AppBar position="sticky" color="inherit" elevation={1} className="border-b border-gray-200">
-        <Toolbar className="px-4">
-          <Link href="/">
-            <Button variant="text" className="font-bold mr-4">← Back to Dashboard</Button>
-          </Link>
-          <Typography variant="h6" className="font-bold flex-1">Recommendations</Typography>
-          <Link href="/stream-summary">
-            <Button size="small" variant="text" className="font-bold">📈 Stream</Button>
-          </Link>
-          <Link href="/anomalies">
-            <Button size="small" variant="text" className="font-bold">⚠️ Anomalies</Button>
-          </Link>
-        </Toolbar>
-      </AppBar>
-      <main style={{ padding: 20, flex: 1 }}>
-        <div style={{ maxWidth: 1000 }}>
-          <Recommendations />
-        </div>
-      </main>
-    </Box>
+    <Shell title="Recommendations">
+      <Recommendations />
+    </Shell>
   );
 }
