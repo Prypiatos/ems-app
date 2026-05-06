@@ -59,8 +59,8 @@ COPY . .
 ARG VERSION=0.0.0
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
-    -o /app/backend ./cmd/backend
+  go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
+  -o /app/backend ./cmd/backend
 
 
 FROM alpine:3.18 AS runner
@@ -78,10 +78,10 @@ USER app
 EXPOSE 8080
 
 LABEL org.opencontainers.image.title="ems-backend" \
-      org.opencontainers.image.version="${VERSION}" \
-      org.opencontainers.image.description="EMS backend service"
+  org.opencontainers.image.version="${VERSION}" \
+  org.opencontainers.image.description="EMS backend service"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:8080/api/v1health || exit 1
+  CMD wget -qO- http://localhost:8080/api/v1/health || exit 1
 
 CMD ["/app/backend"]
