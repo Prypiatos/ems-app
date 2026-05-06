@@ -11,6 +11,7 @@ import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Container from '@mui/material/Container';
 import Chip from '@mui/material/Chip';
+import Link from 'next/link';
 
 import { useAuth } from './auth-provider';
 import { Toast } from './shared/toast';
@@ -47,16 +48,19 @@ export type NodeHealth = {
 };
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const WS_PATH = '/api/v1/readings';
+// WebSocket endpoint for Python backend (provided by user)
+const WS_PATH = '/ws/live';
+const PY_WS_URL = 'ws://192.168.51.139:8000/ws/live';
 const NODES_PATH = '/api/v1/nodes';
 const MAX_ROWS = 5000; // Large buffer to support longer time windows across multiple nodes
 const TABS = ['Overview', 'Live Nodes', 'Events', 'Admin'] as const;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-import { wsUrl, gatewayBase, apiFetch } from '../../../lib/apiGateway';
+import { gatewayBase, apiFetch } from '../../lib/apiGateway';
 
 function resolveWsUrl(): string {
-  return wsUrl(WS_PATH);
+  // Connect directly to Python backend websocket as requested
+  return PY_WS_URL;
 }
 
 function fmtTime(input: unknown): string {
@@ -139,24 +143,42 @@ export function RealtimeDashboard() {
       try {
         const parsed = JSON.parse(String(event.data));
         const payload = parsed?.data && typeof parsed.data === 'object' ? parsed.data : parsed;
-        if (typeof payload.voltage !== 'number' || typeof payload.power !== 'number') return;
+        
+        // Handle Python backend format: avg_power, avg_voltage, avg_current, avg_energy_wh
+        // Also fallback to original format: power, voltage, current, energy_wh
+        const power = payload.avg_power ?? payload.power;
+        const voltage = payload.avg_voltage ?? payload.voltage;
+        const current = payload.avg_current ?? payload.current;
+        const energyWh = payload.avg_energy_wh ?? payload.energy_wh ?? 0;
+        
+        if (typeof voltage !== 'number' || typeof power !== 'number') return;
 
-        // Normalize timestamp: accept number or numeric string, and ensure milliseconds.
-        let tsNum = Number(payload.timestamp);
+        // Normalize timestamp: use window_start if available, otherwise timestamp
+        let tsNum = Number(payload.window_start ?? payload.timestamp);
         if (!Number.isFinite(tsNum)) tsNum = Date.now();
         // If timestamp looks like seconds (e.g. ~1e9), convert to milliseconds.
         if (tsNum < 1e12) tsNum = tsNum * 1000;
 
+        const nodeId = String(payload.node_id ?? 'unknown');
+
         const row: ReadingRow = {
-          nodeId: String(payload.node_id ?? 'unknown'),
-          voltage: payload.voltage,
-          current: payload.current ?? 0,
-          power: payload.power,
-          energyWh: payload.energy_wh ?? 0,
+          nodeId: nodeId,
+          voltage: voltage,
+          current: current ?? 0,
+          power: power,
+          energyWh: energyWh,
           time: fmtTime(tsNum),
           ts: tsNum,
         };
         bufferRef.current.push(row);
+
+        // Also add this node to the nodes list if not already there
+        setNodes((prev) => {
+          if (!prev.includes(nodeId)) {
+            return [...prev, nodeId].sort();
+          }
+          return prev;
+        });
       } catch { /* */ }
     };
 
@@ -209,6 +231,24 @@ export function RealtimeDashboard() {
               <Tab key={t} label={t} className="font-bold tracking-wide" />
             ))}
           </Tabs>
+
+          <Box className="flex items-center gap-2 ml-4">
+            <Link href="/stream-summary">
+              <Button size="small" variant="text" className="font-bold">
+                📈 Stream
+              </Button>
+            </Link>
+            <Link href="/anomalies">
+              <Button size="small" variant="text" className="font-bold">
+                ⚠️ Anomalies
+              </Button>
+            </Link>
+            <Link href="/recommendations">
+              <Button size="small" variant="text" className="font-bold">
+                💡 Recommend
+              </Button>
+            </Link>
+          </Box>
 
           <Box className="flex items-center gap-4 ml-auto pl-4">
             <Chip

@@ -115,7 +115,7 @@ export function AdminTab() {
                         <StatusBadge status={svc.status === 'checking' ? 'unknown' : svc.status} />
                       </Box>
                       <Box className="flex justify-between items-end">
-                        <Typography variant="caption" color="text.secondary" className="max-w-[200px] truncate block">
+                        <Typography variant="caption" color="text.secondary" className="max-w-50 truncate block">
                           {svc.url}
                         </Typography>
                         {svc.latency !== undefined && (

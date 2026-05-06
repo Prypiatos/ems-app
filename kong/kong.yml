@@ -21,7 +21,7 @@ services:
         strip_path: true
 
   - name: py-backend
-    url: http://api:8000
+    url: http://192.168.51.139:8000
     routes:
       - name: py-api
         paths:
