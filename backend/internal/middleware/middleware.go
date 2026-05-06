@@ -250,6 +250,12 @@ func GinPrometheusMiddleware() gin.HandlerFunc {
 		path := c.Request.URL.Path
 		status := strconv.Itoa(c.Writer.Status())
 
+		if c.Writer.Status() < http.StatusBadRequest {
+			apiHTTPRequestTotal.WithLabelValues(path, status).Inc()
+		} else {
+			apiHTTPRequestErrorTotal.WithLabelValues(path, status).Inc()
+		}
+
 		httpRequestsTotal.WithLabelValues(c.Request.Method, path, status).Inc()
 		httpRequestDuration.WithLabelValues(c.Request.Method, path).Observe(duration)
 	}

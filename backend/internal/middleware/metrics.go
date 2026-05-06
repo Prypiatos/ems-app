@@ -10,6 +10,22 @@ import (
 )
 
 var (
+	apiHTTPRequestTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "api_http_request_total",
+			Help: "Total number of requests processed by API",
+		},
+		[]string{"path", "status"},
+	)
+
+	apiHTTPRequestErrorTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "api_http_request_error_total",
+			Help: "Total number of errors returned by API",
+		},
+		[]string{"path", "status"},
+	)
+
 	httpRequestsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "ems_http_requests_total",

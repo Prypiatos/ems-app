@@ -1,19 +1,9 @@
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_interval: 10s
+  evaluation_interval: 10s
 
 scrape_configs:
-  - job_name: 'ems-backend'
-    static_configs:
-      - targets: ['ems-backend:8080']
+  - job_name: ems-backend
     metrics_path: /metrics
-
-  - job_name: 'kong'
     static_configs:
-      - targets: ['kong:8001']
-    metrics_path: /metrics
-
-  - job_name: 'keycloak'
-    static_configs:
-      - targets: ['keycloak:8180']
-    metrics_path: /realms/ems/metrics
+      - targets: ["ems-backend:8080"]
