@@ -142,6 +142,7 @@ services:
       # Frontend is a static site that talks to Kong on port 8000 from the browser.
       # No special container-side env required for default setup.
       NODE_ENV: production
+      NEXT_PUBLIC_API_GATEWAY_URL: "http://kong:8000"
 
 volumes:
   postgres_data:

@@ -47,19 +47,16 @@ export type NodeHealth = {
 };
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const KONG_PORT = 8000;
-const BACKEND_PORT = 8080;
 const WS_PATH = '/api/v1/readings';
 const NODES_PATH = '/api/v1/nodes';
 const MAX_ROWS = 5000; // Large buffer to support longer time windows across multiple nodes
 const TABS = ['Overview', 'Live Nodes', 'Events', 'Admin'] as const;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+import { wsUrl, gatewayBase, apiFetch } from '../../../lib/apiGateway';
+
 function resolveWsUrl(): string {
-  const proto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss' : 'ws';
-  if (typeof window === 'undefined') return `${proto}://localhost:${BACKEND_PORT}${WS_PATH}`;
-  // Connect to websocket via Kong on port 8000
-  return `${proto}://${window.location.hostname}:${KONG_PORT}${WS_PATH}`;
+  return wsUrl(WS_PATH);
 }
 
 function fmtTime(input: unknown): string {
@@ -84,10 +81,7 @@ export function RealtimeDashboard() {
   // Throttle rendering: buffer WS messages, flush at 2 FPS
   const bufferRef = useRef<ReadingRow[]>([]);
 
-  const baseUrl = useMemo(() => {
-    if (typeof window === 'undefined') return `http://localhost:${KONG_PORT}`;
-    return `${window.location.protocol}//${window.location.hostname}:${KONG_PORT}`;
-  }, []);
+  const baseUrl = useMemo(() => gatewayBase(), []);
 
   const authHeaders = useMemo(() => {
     const h: Record<string, string> = {};
@@ -98,7 +92,7 @@ export function RealtimeDashboard() {
   // ── Load nodes + health/events ──────────────────────────────────────────
   const loadNodes = useCallback(async () => {
     try {
-      const res = await fetch(`${baseUrl}${NODES_PATH}`, { headers: authHeaders });
+      const res = await apiFetch(NODES_PATH, { headers: authHeaders });
       if (!res.ok) return;
       const list = ((await res.json()) as string[]).sort();
       
@@ -121,8 +115,8 @@ export function RealtimeDashboard() {
       nodeList.map(async (nodeId) => {
         try {
           const [hRes, eRes] = await Promise.all([
-            fetch(`${baseUrl}/api/v1/nodes/${nodeId}/health`, { headers: authHeaders }),
-            fetch(`${baseUrl}/api/v1/nodes/${nodeId}/events?limit=30`, { headers: authHeaders }),
+            apiFetch(`/api/v1/nodes/${nodeId}/health`, { headers: authHeaders }),
+            apiFetch(`/api/v1/nodes/${nodeId}/events?limit=30`, { headers: authHeaders }),
           ]);
           if (hRes.ok) newHealth[nodeId] = await hRes.json();
           if (eRes.ok) newEvents[nodeId] = await eRes.json();

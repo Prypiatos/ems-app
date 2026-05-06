@@ -1,4 +1,4 @@
-'use client';
+ 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
 import Box from '@mui/material/Box';
@@ -23,8 +23,7 @@ type ServiceStatus = {
   latency?: number;
 };
 
-const BACKEND_PORT = 8080;
-const KONG_PORT = 8000;
+import { apiFetch, gatewayBase } from '../../../lib/apiGateway';
 
 export function AdminTab() {
   const { username, roles, token, logout } = useAuth();
@@ -35,11 +34,9 @@ export function AdminTab() {
   ]);
 
   const checkServices = useCallback(async () => {
-    // Prefer routing health checks through Kong (8000) to ensure CORS headers
-    const baseKong = typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}:${KONG_PORT}`
-      : `http://localhost:${KONG_PORT}`;
-    const baseBackend = baseKong; // use Kong as gateway for backend health checks to avoid CORS issues
+    // Use the configured API gateway (Kong) as the single entrypoint
+    const baseKong = gatewayBase();
+    const baseBackend = baseKong; // route backend checks through the gateway
     const keycloakBase = typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.hostname}:8180`
       : `http://localhost:8180`;
@@ -49,7 +46,7 @@ export function AdminTab() {
     // Backend
     try {
       const t0 = performance.now();
-      const res = await fetch(`${baseBackend}/api/v1/health`, { signal: AbortSignal.timeout(5000) });
+      const res = await apiFetch(`/api/v1/health`, { signal: AbortSignal.timeout(5000) });
       checks.push({ name: 'Backend API', url: `${baseBackend}/api/v1/health`, status: res.ok ? 'up' : 'down', latency: Math.round(performance.now() - t0) });
     } catch {
       checks.push({ name: 'Backend API', url: `${baseBackend}/api/v1/health`, status: 'down' });
@@ -58,7 +55,7 @@ export function AdminTab() {
     // Kong
     try {
       const t0 = performance.now();
-      const res = await fetch(`${baseKong}/api/v1/health`, {
+      const res = await apiFetch(`/api/v1/health`, {
         signal: AbortSignal.timeout(5000),
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
