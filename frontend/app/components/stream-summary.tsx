@@ -89,7 +89,7 @@ export default function StreamSummary() {
     scales: {
       x: {
         type: 'time' as const,
-        time: { unit: 'second' }
+        time: { unit: 'second' as const }
       },
       y: {
         beginAtZero: true

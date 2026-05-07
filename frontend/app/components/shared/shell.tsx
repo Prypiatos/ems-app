@@ -160,7 +160,7 @@ export function Shell({ children, connected = false, title, tabs, tabValue, onTa
 
         <Box sx={{ mt: 'auto', p: 2 }}>
           <Button
-            variant="soft"
+            variant="outlined"
             fullWidth
             onClick={logout}
             startIcon={sidebarOpen ? <LogoutIcon /> : null}
