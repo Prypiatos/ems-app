@@ -2,31 +2,18 @@ _format_version: "3.0"
 _transform: true
 
 services:
-  - name: ems-backend
-    url: http://ems-backend:8080
+  - name: data-intelligence-api
+    url: http://data-intelligence-api.data-intelligence.svc.cluster.local:8000
     routes:
-      - name: ems-api
-        paths:
-          - /
-        strip_path: false
-        # JWT validation is handled by the Go backend middleware
-        # Kong acts as reverse proxy + rate limiter + CORS
-
-  - name: go-backend
-    url: http://ems-backend:8080
-    routes:
-      - name: go-api
-        paths:
-          - /go
-        strip_path: true
-
-  - name: py-backend
-    url: http://192.168.51.139:8000
-    routes:
-      - name: py-api
+      - name: e2-api
         paths:
           - /py
         strip_path: true
+        protocols:
+          - http
+          - https
+          - ws
+          - wss
 
   - name: keycloak
     url: http://keycloak:8180
@@ -34,13 +21,14 @@ services:
       - name: keycloak-api
         paths:
           - /keycloak
-        strip_path: true
+        strip_path: false
 
 plugins:
   - name: cors
     config:
       origins:
         - "http://localhost:3000"
+        - "http://47.131.156.141"
       methods:
         - GET
         - POST
