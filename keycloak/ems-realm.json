@@ -49,9 +49,13 @@
         "+"
       ],
       "protocol": "openid-connect",
+      "frontChannelLogout": true,
+      "frontChannelLogoutSessionRequired": true,
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:3000/* http://47.131.156.141/*"
+        "post.logout.redirect.uris": "http://localhost:3000/* http://47.131.156.141/*",
+        "backchannel.logout.session.required": "true",
+        "backchannel.logout.revoke.offline.tokens": "true"
       },
       "protocolMappers": [
         {
