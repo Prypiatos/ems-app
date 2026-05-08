@@ -35,21 +35,23 @@
       "publicClient": true,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "rootUrl": "http://localhost:3000",
+      "rootUrl": "http://47.131.156.141",
       "baseUrl": "/",
       "redirectUris": [
         "http://localhost:3000/*",
-        "http://localhost:8000/*"
+        "http://localhost:8000/*",
+        "http://47.131.156.141/*"
       ],
       "webOrigins": [
         "http://localhost:3000",
         "http://localhost:8000",
+        "http://47.131.156.141",
         "+"
       ],
       "protocol": "openid-connect",
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:3000/*"
+        "post.logout.redirect.uris": "http://localhost:3000/* http://47.131.156.141/*"
       },
       "protocolMappers": [
         {

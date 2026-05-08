@@ -4,9 +4,11 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import Keycloak from 'keycloak-js';
 
 // ── Keycloak Configuration ──────────────────────────────────────────────────
-const KEYCLOAK_URL = typeof window !== 'undefined'
-  ? `${window.location.protocol}//${window.location.hostname}:8180`
-  : 'http://localhost:8180';
+const KEYCLOAK_URL = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_KEYCLOAK_URL
+  ? process.env.NEXT_PUBLIC_KEYCLOAK_URL
+  : (typeof window !== 'undefined'
+    ? `${window.location.origin}/keycloak`
+    : 'http://localhost/keycloak');
 
 const keycloakConfig = {
   url: KEYCLOAK_URL,

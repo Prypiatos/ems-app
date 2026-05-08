@@ -28,40 +28,35 @@ import { apiFetch, gatewayBase } from '../../../lib/apiGateway';
 export function AdminTab() {
   const { username, roles, token, logout } = useAuth();
   const [services, setServices] = useState<ServiceStatus[]>([
-    { name: 'Backend API', url: `/health`, status: 'checking' },
-    { name: 'Kong Gateway', url: `/kong`, status: 'checking' },
+    { name: 'E2 API', url: `/py/health`, status: 'checking' },
+    { name: 'Gateway Route', url: `/py/health`, status: 'checking' },
     { name: 'Keycloak', url: `/keycloak`, status: 'checking' },
   ]);
 
   const checkServices = useCallback(async () => {
     // Use the configured API gateway (Kong) as the single entrypoint
     const baseKong = gatewayBase();
-    const baseBackend = baseKong; // route backend checks through the gateway
-    const keycloakBase = typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.hostname}:8180`
-      : `http://localhost:8180`;
-
     const checks: ServiceStatus[] = [];
 
-    // Backend
+    // E2 API through the gateway
     try {
       const t0 = performance.now();
-      const res = await apiFetch(`/api/v1/health`, { signal: AbortSignal.timeout(5000) });
-      checks.push({ name: 'Backend API', url: `${baseBackend}/api/v1/health`, status: res.ok ? 'up' : 'down', latency: Math.round(performance.now() - t0) });
+      const res = await apiFetch(`/py/health`, { signal: AbortSignal.timeout(5000) });
+      checks.push({ name: 'E2 API', url: `${baseKong}/py/health`, status: res.ok ? 'up' : 'down', latency: Math.round(performance.now() - t0) });
     } catch {
-      checks.push({ name: 'Backend API', url: `${baseBackend}/api/v1/health`, status: 'down' });
+      checks.push({ name: 'E2 API', url: `${baseKong}/py/health`, status: 'down' });
     }
 
-    // Kong
+    // Kong as the browser entrypoint to the API
     try {
       const t0 = performance.now();
-      const res = await apiFetch(`/api/v1/health`, {
+      const res = await apiFetch(`/py/health`, {
         signal: AbortSignal.timeout(5000),
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      checks.push({ name: 'Kong Gateway', url: `${baseKong}`, status: res.ok ? 'up' : 'down', latency: Math.round(performance.now() - t0) });
+      checks.push({ name: 'Gateway Route', url: `${baseKong}/py/health`, status: res.ok ? 'up' : 'down', latency: Math.round(performance.now() - t0) });
     } catch {
-      checks.push({ name: 'Kong Gateway', url: `${baseKong}`, status: 'down' });
+      checks.push({ name: 'Gateway Route', url: `${baseKong}/py/health`, status: 'down' });
     }
 
     // Keycloak (route through gateway under /keycloak if configured)
@@ -82,9 +77,8 @@ export function AdminTab() {
     return () => clearInterval(t);
   }, [checkServices]);
 
-  const grafanaUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:3001` : 'http://localhost:3001';
-  const prometheusUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:9090` : 'http://localhost:9090';
-  const keycloakAdminUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:8180/admin` : 'http://localhost:8180/admin';
+  const apiDocsUrl = `${gatewayBase()}/py/docs`;
+  const keycloakAdminUrl = typeof window !== 'undefined' ? `${window.location.origin}/keycloak/admin/` : 'http://localhost/keycloak/admin/';
 
   return (
     <Box className="pb-8">
@@ -169,28 +163,15 @@ export function AdminTab() {
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <Button
-                    href={grafanaUrl}
+                    href={apiDocsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     variant="outlined"
                     className="w-full h-full flex flex-col items-start p-4 normal-case text-left"
                     endIcon={<OpenInNewIcon className="absolute top-4 right-4 text-gray-400" />}
                   >
-                    <Typography color="text.primary" className="font-bold">Grafana</Typography>
-                    <Typography variant="caption" color="text.secondary">Dashboards</Typography>
-                  </Button>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <Button
-                    href={prometheusUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    variant="outlined"
-                    className="w-full h-full flex flex-col items-start p-4 normal-case text-left"
-                    endIcon={<OpenInNewIcon className="absolute top-4 right-4 text-gray-400" />}
-                  >
-                    <Typography color="text.primary" className="font-bold">Prometheus</Typography>
-                    <Typography variant="caption" color="text.secondary">Metrics</Typography>
+                    <Typography color="text.primary" className="font-bold">API Docs</Typography>
+                    <Typography variant="caption" color="text.secondary">FastAPI OpenAPI</Typography>
                   </Button>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
@@ -204,6 +185,19 @@ export function AdminTab() {
                   >
                     <Typography color="text.primary" className="font-bold">Keycloak</Typography>
                     <Typography variant="caption" color="text.secondary">Identity</Typography>
+                  </Button>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <Button
+                    href={apiDocsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="outlined"
+                    className="w-full h-full flex flex-col items-start p-4 normal-case text-left"
+                    endIcon={<OpenInNewIcon className="absolute top-4 right-4 text-gray-400" />}
+                  >
+                    <Typography color="text.primary" className="font-bold">Gateway</Typography>
+                    <Typography variant="caption" color="text.secondary">Same-origin proxy</Typography>
                   </Button>
                 </Grid>
               </Grid>

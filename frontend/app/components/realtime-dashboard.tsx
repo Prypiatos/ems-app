@@ -1,8 +1,7 @@
 'use client';
 
-import { useMemo, useEffect, useState, useCallback, useRef } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import { useAuth } from './auth-provider';
-import { Toast } from './shared/toast';
 import { Shell } from './shared/shell';
 import { OverviewTab } from './tabs/overview-tab';
 import { LiveNodesTab } from './tabs/live-nodes-tab';
@@ -37,15 +36,13 @@ export type NodeHealth = {
 };
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const PY_WS_URL = 'ws://192.168.51.139:8000/ws/live';
-const NODES_PATH = '/api/v1/nodes';
 const MAX_ROWS = 5000;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-import { apiFetch } from '../../lib/apiGateway';
+import { wsUrl } from '../../lib/apiGateway';
 
 function resolveWsUrl(): string {
-  return PY_WS_URL;
+  return wsUrl('/py/ws/live');
 }
 
 function fmtTime(input: unknown): string {
@@ -58,58 +55,15 @@ function fmtTime(input: unknown): string {
 
 // ── Main Component ───────────────────────────────────────────────────────────
 export function RealtimeDashboard() {
-  const { token, roles } = useAuth();
+  const { roles } = useAuth();
   const [tabIndex, setTabIndex] = useState(0);
   const [connected, setConnected] = useState(false);
   const [rows, setRows] = useState<ReadingRow[]>([]);
   const [nodes, setNodes] = useState<string[]>([]);
   const [healthMap, setHealthMap] = useState<Record<string, NodeHealth>>({});
   const [eventsMap, setEventsMap] = useState<Record<string, NodeEvent[]>>({});
-  const [toast, setToast] = useState('');
 
   const bufferRef = useRef<ReadingRow[]>([]);
-
-  const authHeaders = useMemo(() => {
-    const h: Record<string, string> = {};
-    if (token) h['Authorization'] = `Bearer ${token}`;
-    return h;
-  }, [token]);
-
-  const loadNodes = useCallback(async () => {
-    try {
-      const res = await apiFetch(NODES_PATH, { headers: authHeaders });
-      if (!res.ok) return;
-      const list = ((await res.json()) as string[]).sort();
-      setNodes(prev => {
-        if (JSON.stringify(prev) === JSON.stringify(list)) return prev;
-        return list;
-      });
-    } catch { /* */ }
-  }, [authHeaders]);
-
-  const loadDetails = useCallback(async () => {
-    const nodeList = nodes.length > 0 ? nodes : [];
-    if (nodeList.length === 0) return;
-
-    const newHealth: Record<string, NodeHealth> = {};
-    const newEvents: Record<string, NodeEvent[]> = {};
-
-    await Promise.all(
-      nodeList.map(async (nodeId) => {
-        try {
-          const [hRes, eRes] = await Promise.all([
-            apiFetch(`/api/v1/nodes/${nodeId}/health`, { headers: authHeaders }),
-            apiFetch(`/api/v1/nodes/${nodeId}/events?limit=30`, { headers: authHeaders }),
-          ]);
-          if (hRes.ok) newHealth[nodeId] = await hRes.json();
-          if (eRes.ok) newEvents[nodeId] = await eRes.json();
-        } catch { /* */ }
-      }),
-    );
-
-    setHealthMap((prev) => ({ ...prev, ...newHealth }));
-    setEventsMap((prev) => ({ ...prev, ...newEvents }));
-  }, [authHeaders, nodes]);
 
   useEffect(() => {
     const ws = new WebSocket(resolveWsUrl());
@@ -134,6 +88,17 @@ export function RealtimeDashboard() {
         };
         bufferRef.current.push(row);
         setNodes((prev) => !prev.includes(nodeId) ? [...prev, nodeId].sort() : prev);
+        setHealthMap((prev) => ({
+          ...prev,
+          [nodeId]: {
+            status: 'online',
+            sequence_no: prev[nodeId]?.sequence_no ?? 0,
+            uptime_sec: prev[nodeId]?.uptime_sec ?? 0,
+            sensor_ok: prev[nodeId]?.sensor_ok ?? true,
+            mqtt_connected: true,
+            wifi_connected: true,
+          },
+        }));
       } catch { /* */ }
     };
     return () => ws.close();
@@ -147,18 +112,6 @@ export function RealtimeDashboard() {
     }, 500);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    loadNodes();
-    const t = setInterval(loadNodes, 60000);
-    return () => clearInterval(t);
-  }, [loadNodes]);
-
-  useEffect(() => {
-    loadDetails();
-    const t = setInterval(loadDetails, 60000);
-    return () => clearInterval(t);
-  }, [loadDetails]);
 
   const dashboardTabs = useMemo(() => {
     const tabs = [
@@ -183,7 +136,6 @@ export function RealtimeDashboard() {
       {tabIndex === 1 && <LiveNodesTab nodes={nodes} rows={rows} healthMap={healthMap} />}
       {tabIndex === 2 && <EventsTab events={eventsMap} nodes={nodes} />}
       {tabIndex === 3 && roles.includes('admin') && <AdminTab />}
-      {toast && <Toast message={toast} onDone={() => setToast('')} />}
     </Shell>
   );
 }

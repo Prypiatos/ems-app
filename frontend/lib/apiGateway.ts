@@ -2,8 +2,8 @@
 export const API_GATEWAY = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_GATEWAY_URL
   ? process.env.NEXT_PUBLIC_API_GATEWAY_URL
   : (typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.hostname}:8000`
-    : 'http://localhost:8000');
+    ? window.location.origin
+    : 'http://localhost');
 
 function joinPath(base: string, path: string) {
   if (!path) return base;
