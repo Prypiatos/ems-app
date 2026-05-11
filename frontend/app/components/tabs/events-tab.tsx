@@ -104,16 +104,16 @@ export function EventsTab({ events, nodes }: EventsTabProps) {
 
   return (
     <Box className="pb-8">
-      <Box className="flex justify-between items-center mb-6">
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, mb: 3 }}>
         <Box>
-          <Typography variant="h4" component="h1" className="font-bold">
+          <Typography variant="h4" component="h1" className="font-bold" sx={{ fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             Event Log
           </Typography>
           <Typography variant="body2" color="text.secondary" className="mt-1">
             {allEvents.length} total events across {nodes.length} nodes
           </Typography>
         </Box>
-        <Button variant="outlined" startIcon={<DownloadIcon />} onClick={onExport}>
+        <Button variant="outlined" startIcon={<DownloadIcon />} onClick={onExport} size="small">
           Export JSON
         </Button>
       </Box>
@@ -122,26 +122,26 @@ export function EventsTab({ events, nodes }: EventsTabProps) {
         <Grid size={{ xs: 12, md: 8, lg: 9 }}>
           <Card elevation={0} className="border border-gray-200">
             <CardContent>
-              <Box className="flex flex-wrap gap-4 mb-6">
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
                 <TextField
                   size="small"
                   variant="outlined"
                   placeholder="Search events..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="flex-grow md:max-w-xs"
+                  sx={{ flexGrow: 1, minWidth: 160, maxWidth: { md: 280 } }}
                 />
                 <Select
                   size="small"
                   value={nodeFilter}
                   onChange={(e) => setNodeFilter(e.target.value)}
-                  className="min-w-[150px]"
+                  sx={{ minWidth: 140 }}
                 >
                   <MenuItem value="all">All Nodes</MenuItem>
                   {nodes.map((n) => <MenuItem key={n} value={n}>{n}</MenuItem>)}
                 </Select>
-                
-                <Box className="flex items-center gap-2 ml-auto">
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   {(['high', 'medium', 'low'] as const).map((s) => (
                     <Chip
                       key={s}
@@ -161,8 +161,8 @@ export function EventsTab({ events, nodes }: EventsTabProps) {
                   No events match your filters
                 </Typography>
               ) : (
-                <TableContainer>
-                  <Table size="small">
+                <TableContainer sx={{ overflowX: 'auto' }}>
+                  <Table size="small" sx={{ minWidth: 560 }}>
                     <TableHead>
                       <TableRow>
                         <TableCell><Typography variant="caption" color="text.secondary" className="font-bold">TIME</Typography></TableCell>

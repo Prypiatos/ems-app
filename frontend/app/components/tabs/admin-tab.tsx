@@ -82,11 +82,11 @@ export function AdminTab() {
 
   return (
     <Box className="pb-8">
-      <Box className="flex justify-between items-center mb-6">
-        <Typography variant="h4" component="h1" className="font-bold">
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 3 }}>
+        <Typography variant="h4" component="h1" className="font-bold" sx={{ fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
           Admin Panel
         </Typography>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={checkServices}>
+        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={checkServices} size="small">
           Refresh Status
         </Button>
       </Box>
@@ -109,7 +109,7 @@ export function AdminTab() {
                         <StatusBadge status={svc.status === 'checking' ? 'unknown' : svc.status} />
                       </Box>
                       <Box className="flex justify-between items-end">
-                        <Typography variant="caption" color="text.secondary" className="max-w-50 truncate block">
+                        <Typography variant="caption" color="text.secondary" sx={{ maxWidth: { xs: 140, sm: 200 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
                           {svc.url}
                         </Typography>
                         {svc.latency !== undefined && (

@@ -188,7 +188,7 @@ export function LiveNodesTab({ nodes, rows, healthMap }: LiveNodesTabProps) {
   return (
     <Box className="pb-8">
       <Box className="mb-6">
-        <Typography variant="h4" className="font-bold">Live Nodes</Typography>
+        <Typography variant="h4" className="font-bold" sx={{ fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Live Nodes</Typography>
         <Typography variant="body2" color="text.secondary">Real-time telemetry · past 10 minutes</Typography>
       </Box>
       

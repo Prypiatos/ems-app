@@ -71,9 +71,9 @@ export function OverviewTab({ nodes, rows, healthMap, events, connected }: Overv
 
   return (
     <Box sx={{ pb: 6 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 4 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: -1 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: -1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
             System Overview
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>

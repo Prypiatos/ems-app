@@ -23,6 +23,8 @@ export default function Recommendations() {
     pyFetch('/recommendations')
       .then(async (res) => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const ct = res.headers.get('content-type') ?? '';
+        if (!ct.includes('application/json')) throw new Error('Service returned an invalid response — it may be unavailable.');
         const data = await res.json();
         if (mounted) setItems(data as Recommendation[]);
       })

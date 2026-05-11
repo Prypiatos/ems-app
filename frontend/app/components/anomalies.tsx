@@ -22,6 +22,8 @@ export default function Anomalies() {
     pyFetch('/anomalies')
       .then(async res => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const ct = res.headers.get('content-type') ?? '';
+        if (!ct.includes('application/json')) throw new Error('Service returned an invalid response — it may be unavailable.');
         const data = await res.json();
         if (mounted) setRows(data as AnomalyRow[]);
       })
@@ -39,8 +41,8 @@ export default function Anomalies() {
         <Typography>No anomalies found</Typography>
       )}
       {!loading && !error && rows.length > 0 && (
-        <TableContainer component={Paper} sx={{ mt: 2 }}>
-          <Table size="small">
+        <TableContainer component={Paper} sx={{ mt: 2, overflowX: 'auto' }}>
+          <Table size="small" sx={{ minWidth: 480 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Time</TableCell>
