@@ -266,7 +266,7 @@ export function Shell({ children, connected = false, title, tabs, tabValue, onTa
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: connected ? 'success.main' : 'error.main', boxShadow: connected ? '0 0 8px #22c55e' : 'none', flexShrink: 0 }} />
                 <Typography variant="body2" sx={{ fontWeight: 600, color: connected ? 'success.main' : 'error.main', display: { xs: 'none', sm: 'block' }, whiteSpace: 'nowrap' }}>
-                  {connected ? 'Live System' : 'System Offline'}
+                  {connected ? 'System Live' : 'System Offline'}
                 </Typography>
               </Box>
 
