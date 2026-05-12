@@ -5,7 +5,8 @@ import { useAuth } from './auth-provider';
 import { Shell } from './shared/shell';
 import { OverviewTab } from './tabs/overview-tab';
 import { LiveNodesTab } from './tabs/live-nodes-tab';
-import { EventsTab } from './tabs/events-tab';
+import { AnalyticsTab } from './tabs/analytics-tab';
+import { ForecastTab } from './tabs/forecast-tab';
 import { AdminTab } from './tabs/admin-tab';
 
 // ── Exported types (shared by tabs) ──────────────────────────────────────────
@@ -61,7 +62,7 @@ export function RealtimeDashboard() {
   const [rows, setRows] = useState<ReadingRow[]>([]);
   const [nodes, setNodes] = useState<string[]>([]);
   const [healthMap, setHealthMap] = useState<Record<string, NodeHealth>>({});
-  const [eventsMap, setEventsMap] = useState<Record<string, NodeEvent[]>>({});
+  const eventsMap: Record<string, NodeEvent[]> = {};
 
   const bufferRef = useRef<ReadingRow[]>([]);
 
@@ -117,10 +118,11 @@ export function RealtimeDashboard() {
     const tabs = [
       { label: 'Overview', index: 0 },
       { label: 'Live Nodes', index: 1 },
-      { label: 'Events', index: 2 },
+      { label: 'Analytics', index: 2 },
+      { label: 'Forecast', index: 3 },
     ];
     if (roles.includes('admin')) {
-      tabs.push({ label: 'Admin', index: 3 });
+      tabs.push({ label: 'Admin', index: 4 });
     }
     return tabs;
   }, [roles]);
@@ -134,8 +136,9 @@ export function RealtimeDashboard() {
     >
       {tabIndex === 0 && <OverviewTab nodes={nodes} rows={rows} healthMap={healthMap} events={eventsMap} connected={connected} />}
       {tabIndex === 1 && <LiveNodesTab nodes={nodes} rows={rows} healthMap={healthMap} />}
-      {tabIndex === 2 && <EventsTab events={eventsMap} nodes={nodes} />}
-      {tabIndex === 3 && roles.includes('admin') && <AdminTab />}
+      {tabIndex === 2 && <AnalyticsTab />}
+      {tabIndex === 3 && <ForecastTab />}
+      {tabIndex === 4 && roles.includes('admin') && <AdminTab />}
     </Shell>
   );
 }

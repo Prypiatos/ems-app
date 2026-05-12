@@ -24,7 +24,6 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import TimelineIcon from '@mui/icons-material/Timeline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -60,7 +59,6 @@ export function Shell({ children, connected = false, title, tabs, tabValue, onTa
   ];
 
   const analysisNav = [
-    { label: 'Stream Summary', icon: <TimelineIcon />, href: '/stream-summary' },
     { label: 'Anomalies', icon: <WarningAmberIcon />, href: '/anomalies' },
     { label: 'Recommendations', icon: <LightbulbIcon />, href: '/recommendations' },
   ];
