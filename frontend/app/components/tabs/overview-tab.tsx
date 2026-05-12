@@ -94,7 +94,7 @@ export function OverviewTab({ nodes, rows, healthMap, events, connected }: Overv
           <MetricCard label="System Alerts" value={String(totalAlerts)} sub="High priority" status={totalAlerts > 0 ? 'bad' : 'ok'} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <MetricCard label="Stream Health" value={connected ? 'Optimal' : 'Offline'} status={connected ? 'ok' : 'bad'} />
+          <MetricCard label="Stream Health" value={connected ? 'Live' : 'Offline'} status={connected ? 'ok' : 'bad'} />
         </Grid>
       </Grid>
 
